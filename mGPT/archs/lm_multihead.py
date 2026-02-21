@@ -620,7 +620,7 @@ class LMMultiHead(nn.Module):
                         idx_next_rhand = torch.argmax(probs_rhand, dim=1, keepdim=True)
                         idx_next_lhand[finished] = idx_next_rhand[finished] = self.eos_idx
                     
-                    finished = torch.any(idx_next_body.squeeze(-1) == self.eos_idx, dim=-1)
+                    finished = finished | (idx_next_body.squeeze(-1) == self.eos_idx)
                     
                 # append sampled index to the running sequence and continue
                 decoder_input_ids = torch.cat((decoder_input_ids, idx_next_body), dim=1)
