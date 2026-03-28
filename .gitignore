@@ -4,6 +4,8 @@ data
 data/
 .venv
 .venv/
+logs
+logs/
 checkpoints
 checkpoints/
 deps
