@@ -43,11 +43,11 @@ DATASET:
   target: mGPT.data.H2S.H2SDataModule
   H2S:
     DATASET_NAME: how2sign_csl_phoenix
-    ROOT: ../data/How2Sign
-    CSL_ROOT: ../data/CSL-Daily
-    PHOENIX_ROOT: ../data/Phoenix_2014T
-    MEAN_PATH: ../data/CSL-Daily/mean.pt
-    STD_PATH: ../data/CSL-Daily/std.pt
+    ROOT: ${oc.env:SOKE_H2S_ROOT,../data/How2Sign}
+    CSL_ROOT: ${oc.env:SOKE_CSL_ROOT,../data/CSL-Daily}
+    PHOENIX_ROOT: ${oc.env:SOKE_PHOENIX_ROOT,../data/Phoenix_2014T}
+    MEAN_PATH: ${oc.env:SOKE_CSL_MEAN_PATH,../data/CSL-Daily/mean.pt}
+    STD_PATH: ${oc.env:SOKE_CSL_STD_PATH,../data/CSL-Daily/std.pt}
     MAX_MOTION_LEN: 400
     MIN_MOTION_LEN: 40
     MAX_TEXT_LEN: 20

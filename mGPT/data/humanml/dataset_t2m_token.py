@@ -16,6 +16,14 @@ from .load_data import load_h2s_sample, load_csl_sample, load_phoenix_sample, lo
 # Some how2sign ids are broken, failing in pose fitting.
 bad_how2sign_ids = ['0DU7wWLK-QU_0-8-rgb_front', '0ICZi26jdaQ_28-5-rgb_front', '0vNfEYst_tQ_11-8-rgb_front', '13X0vEMNm7M_8-5-rgb_front', '14weIYQswlE_23-8-rgb_front', '1B56XMJ-j1Q_13-8-rgb_front', '1P0oKY4FNyI_0-8-rgb_front', '1dpRaxOTfZs_0-8-rgb_front', '1ei1kVTw23A_29-8-rgb_front', '1spCnuBmWYk_0-8-rgb_front', '2-vXO7MMLJc_0-5-rgb_front', '21PbS6wnHtY_0-5-rgb_front', '3tyfxL2wO-M_0-8-rgb_front', 'BpYDl3AO4B8_0-1-rgb_front', 'CH7AviIr0-0_14-8-rgb_front', 'CJ8RyW9pzKU_6-8-rgb_front', 'D0T7ho08Q3o_25-2-rgb_front', 'Db5SUQvNsHc_18-1-rgb_front', 'Eh697LCFjTw_0-3-rgb_front', 'F-p1IdedNbg_23-8-rgb_front', 'aUBQCNegrYc_13-1-rgb_front', 'cvn7htBA8Xc_9-8-rgb_front', 'czBrBQgZIuc_19-5-rgb_front', 'dbSAB8F8GYc_11-9-rgb_front', 'doMosV-zfCI_7-2-rgb_front', 'dvBdWGLzayI_10-8-rgb_front', 'eBrlZcccILg_26-3-rgb_front', '39FN42e41r0_17-1-rgb_front', 'a4Nxq0QV_WA_9-3-rgb_front', 'fzrJBu2qsM8_11-8-rgb_front', 'g3Cc_1-V31U_12-3-rgb_front']
 
+def _has_min_frames(path, min_frames=4):
+    if not os.path.isdir(path):
+        return False
+    try:
+        return len(os.listdir(path)) >= min_frames
+    except OSError:
+        return False
+
 class Text2MotionDatasetToken(data.Dataset):
 
     def __init__(
@@ -59,13 +67,18 @@ class Text2MotionDatasetToken(data.Dataset):
             self.ids = self.csv['SENTENCE_NAME'] #[:100]
 
             print(f'{split}--loading how2sign annotations...', len(self.ids))
+            missing_h2s = 0
             for idx in tqdm(range(len(self.ids))):
                 name = self.ids[idx]
                 if name in bad_how2sign_ids:
                     continue
+                if not _has_min_frames(os.path.join(self.data_dir, name)):
+                    missing_h2s += 1
+                    continue
                 self.all_data.append({'name': name, 'fps': self.csv[self.csv['SENTENCE_NAME']==name]['fps'].item(), 
                                         'text': self.csv[self.csv['SENTENCE_NAME']==name]['SENTENCE'].item(), 'src': 'how2sign'})
             self.h2s_len += len(self.all_data)
+            print(f'{split}--how2sign usable: {self.h2s_len} (missing poses: {missing_h2s})')
             
         if 'csl' in dataset_name:
             if split == 'train':
@@ -76,11 +89,16 @@ class Text2MotionDatasetToken(data.Dataset):
                 self.ann = pickle.load(f) #[:100]
 
             print(f'{split}--loading csl annotations...', len(self.ann))
+            missing_csl = 0
             for idx in tqdm(range(len(self.ann))):
                 ann = deepcopy(self.ann[idx])
                 ann['src'] = 'csl'
+                if not _has_min_frames(os.path.join(self.csl_root, 'poses', ann['name'])):
+                    missing_csl += 1
+                    continue
                 self.all_data.append(ann)
-            self.csl_len += len(self.ann)
+                self.csl_len += 1
+            print(f'{split}--csl usable: {self.csl_len} (missing poses: {missing_csl})')
 
         if 'phoenix' in dataset_name:
             if split == 'val':
@@ -91,11 +109,16 @@ class Text2MotionDatasetToken(data.Dataset):
                 self.ann = pickle.load(f) #[:100]
 
             print(f'{split}--loading phoenix annotations...', len(self.ann))
+            missing_phoenix = 0
             for idx in tqdm(range(len(self.ann))):
                 ann = deepcopy(self.ann[idx])
                 ann['src'] = 'phoenix'
+                if not _has_min_frames(os.path.join(self.phoenix_root, ann['name'])):
+                    missing_phoenix += 1
+                    continue
                 self.all_data.append(ann)
-            self.phoenix_len += len(self.ann)
+                self.phoenix_len += 1
+            print(f'{split}--phoenix usable: {self.phoenix_len} (missing poses: {missing_phoenix})')
 
         print(f'Data loading done. All: {len(self.all_data)}, How2Sign: {self.h2s_len}, CSL: {self.csl_len}, Phoenix: {self.phoenix_len}')
 
@@ -141,4 +164,3 @@ class Text2MotionDatasetToken(data.Dataset):
         m_length = clip_poses.shape[0]
 
         return name, torch.from_numpy(clip_poses).float(), m_length, True, True, True, True, True, True, src
-

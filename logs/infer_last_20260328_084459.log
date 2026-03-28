@@ -1,0 +1,68 @@
+Force no debugging when testing
+mean path ../data/CSL-Daily/mean.pt std_path:  ../data/CSL-Daily/std.pt
+loading how2sign data... 2310
+how2sign usable: 64 (missing poses: 0)
+Data loading done. All: 64, How2Sign: 64, CSL: 0, Phoenix: 0
+load rhand vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+load hand vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+load vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+rank:  0 {'how2sign_DTW_MPJPE_PA_lhand': np.float64(26.20169633196201), 'how2sign_DTW_MPJPE_PA_rhand': np.float64(11.812676645742613), 'how2sign_DTW_MPJPE_PA_body': np.float64(12.34514032243169), 'csl_DTW_MPJPE_PA_lhand': 0.0, 'csl_DTW_MPJPE_PA_rhand': 0.0, 'csl_DTW_MPJPE_PA_body': 0.0, 'phoenix_DTW_MPJPE_PA_lhand': 0.0, 'phoenix_DTW_MPJPE_PA_rhand': 0.0, 'phoenix_DTW_MPJPE_PA_body': 0.0}
+how2sign_DTW_MPJPE_PA_lhand :  tensor([26.2017], device='cuda:0')
+how2sign_DTW_MPJPE_PA_rhand :  tensor([11.8127], device='cuda:0')
+how2sign_DTW_MPJPE_PA_body :  tensor([12.3451], device='cuda:0')
+csl_DTW_MPJPE_PA_lhand :  tensor([0.], device='cuda:0')
+csl_DTW_MPJPE_PA_rhand :  tensor([0.], device='cuda:0')
+csl_DTW_MPJPE_PA_body :  tensor([0.], device='cuda:0')
+phoenix_DTW_MPJPE_PA_lhand :  tensor([0.], device='cuda:0')
+phoenix_DTW_MPJPE_PA_rhand :  tensor([0.], device='cuda:0')
+phoenix_DTW_MPJPE_PA_body :  tensor([0.], device='cuda:0')
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃             Test metric             ┃            DataLoader 0             ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│    Metrics/csl_DTW_MPJPE_PA_body    │                 0.0                 │
+│   Metrics/csl_DTW_MPJPE_PA_lhand    │                 0.0                 │
+│   Metrics/csl_DTW_MPJPE_PA_rhand    │                 0.0                 │
+│ Metrics/how2sign_DTW_MPJPE_PA_body  │         12.345141410827637          │
+│ Metrics/how2sign_DTW_MPJPE_PA_lhand │          26.20170021057129          │
+│ Metrics/how2sign_DTW_MPJPE_PA_rhand │         11.812678337097168          │
+│  Metrics/phoenix_DTW_MPJPE_PA_body  │                 0.0                 │
+│ Metrics/phoenix_DTW_MPJPE_PA_lhand  │                 0.0                 │
+│ Metrics/phoenix_DTW_MPJPE_PA_rhand  │                 0.0                 │
+└─────────────────────────────────────┴─────────────────────────────────────┘
+Testing ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8/8 0:02:13 • 0:00:00 0.06it/s  
+                                                                                        Mean Metrics                                                                                          
+                                                                    ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓                                                                     
+                                                                    ┃ Metrics                                  ┃ Value  ┃                                                                     
+                                                                    ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩                                                                     
+                                                                    │ Metrics/how2sign_DTW_MPJPE_PA_lhand/mean │ 26.202 │                                                                     
+                                                                    │ Metrics/how2sign_DTW_MPJPE_PA_rhand/mean │ 11.813 │                                                                     
+                                                                    │ Metrics/how2sign_DTW_MPJPE_PA_body/mean  │ 12.345 │                                                                     
+                                                                    │ Metrics/csl_DTW_MPJPE_PA_lhand/mean      │ 0.000  │                                                                     
+                                                                    │ Metrics/csl_DTW_MPJPE_PA_rhand/mean      │ 0.000  │                                                                     
+                                                                    │ Metrics/csl_DTW_MPJPE_PA_body/mean       │ 0.000  │                                                                     
+                                                                    │ Metrics/phoenix_DTW_MPJPE_PA_lhand/mean  │ 0.000  │                                                                     
+                                                                    │ Metrics/phoenix_DTW_MPJPE_PA_rhand/mean  │ 0.000  │                                                                     
+                                                                    │ Metrics/phoenix_DTW_MPJPE_PA_body/mean   │ 0.000  │                                                                     
+                                                                    └──────────────────────────────────────────┴────────┘                                                                     
+Finished testing on ckpt:  experiments/mgpt/SOKE/checkpoints/last.ckpt

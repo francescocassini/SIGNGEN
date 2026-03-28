@@ -1,5 +1,9 @@
 __pycache__
 __pycache__/
+data
+data/
+.venv
+.venv/
 checkpoints
 checkpoints/
 deps

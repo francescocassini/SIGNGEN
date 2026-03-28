@@ -17,6 +17,9 @@ pip install -r requirements.txt
 
 
 ## Data
+For a practical setup with dataset outside the code repo (including private Hugging Face dataset repo), see:
+- `DATASET_PRIVATE_HF.md`
+
 ### Continuous Sign Language Datasets
 How2Sign: [raw videos](https://how2sign.github.io/)(Green Screen RGB clips (frontal view)) and [split files](https://drive.google.com/drive/folders/1sPhBwmiWCXLZSHtM3fpotbz3BDgoYmco?usp=sharing).
 
@@ -25,6 +28,23 @@ CSL-Daily: [raw videos](http://home.ustc.edu.cn/~zhouh156/dataset/csl-daily/) an
 Phoenix-2014T: [raw videos](https://www-i6.informatik.rwth-aachen.de/~koller/RWTH-PHOENIX-2014-T/) and [split files](https://drive.google.com/drive/folders/1Z2zjOH5wvwT7x_F6IycWAN-nh2wgJOx1?usp=sharing).
 
 SMPL-X Poses can be downloaded from the project [homepage](https://2000zrl.github.io/soke/).
+
+### External dataset root via environment variables
+By default, configs use `../data/...`. You can override paths with:
+
+```bash
+export SOKE_H2S_ROOT=/abs/path/SOKE_DATA/How2Sign
+export SOKE_CSL_ROOT=/abs/path/SOKE_DATA/CSL-Daily
+export SOKE_PHOENIX_ROOT=/abs/path/SOKE_DATA/Phoenix_2014T
+export SOKE_CSL_MEAN_PATH=$SOKE_CSL_ROOT/mean.pt
+export SOKE_CSL_STD_PATH=$SOKE_CSL_ROOT/std.pt
+```
+
+Helper script:
+
+```bash
+source scripts/set_data_root_env.sh /abs/path/SOKE_DATA
+```
 
 
 ## Models

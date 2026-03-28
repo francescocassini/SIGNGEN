@@ -1,4 +1,5 @@
 import os
+import time
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback, RichProgressBar, ModelCheckpoint
 
@@ -235,6 +236,7 @@ class progressLogger(Callback):
         self.metric_monitor = metric_monitor
         self.precision = precision
         self.log_every_n_steps = log_every_n_steps
+        self._epoch_start_time = None
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule,
                        **kwargs) -> None:
@@ -244,10 +246,26 @@ class progressLogger(Callback):
                      **kwargs) -> None:
         self.logger.info("Training done")
 
+    def on_train_epoch_start(self, trainer: Trainer, pl_module: LightningModule, **kwargs) -> None:
+        self._epoch_start_time = time.time()
+
     def on_validation_epoch_end(self, trainer: Trainer,
                                 pl_module: LightningModule, **kwargs) -> None:
         if trainer.sanity_checking:
             self.logger.info("Sanity checking ok.")
+            return
+        # Print monitored validation metrics at each validation epoch.
+        metric_format = f"{{:.{self.precision}e}}"
+        losses_dict = trainer.callback_metrics
+        metrics_str = []
+        for metric_name, dico_name in self.metric_monitor.items():
+            if dico_name in losses_dict:
+                metric = losses_dict[dico_name].item()
+                metrics_str.append(f"{metric_name} {metric_format.format(metric)}")
+        if metrics_str:
+            self.logger.info(
+                f"Validation epoch {trainer.current_epoch}: " + "   ".join(metrics_str)
+            )
 
     def on_train_epoch_end(self,
                            trainer: Trainer,
@@ -271,5 +289,8 @@ class progressLogger(Callback):
                     metrics_str.append(metric)
 
             line = line + ": " + "   ".join(metrics_str)
-
+        elapsed = 0.0
+        if self._epoch_start_time is not None:
+            elapsed = time.time() - self._epoch_start_time
+        line = f"{line}   epoch_time {elapsed:.1f}s"
         self.logger.info(line)

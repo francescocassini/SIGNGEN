@@ -159,7 +159,7 @@ class MotionGPT(BaseModel):
         return {'outputs': outputs}
 
     @torch.no_grad()
-    def val_t2m_forward(self, batch, vis=False):
+    def val_t2m_forward(self, batch, vis=False, compute_eval_artifacts=True):
         feats_ref = batch["motion"]
         # print(feats_ref.shape)
         B, T, C = feats_ref.shape
@@ -274,13 +274,22 @@ class MotionGPT(BaseModel):
                     rst_len[i] = min(rst_len[i], max_len)
                 feats_rst[i:i + 1, :, 75:75+self.hand_vae.nfeats] = motion_rhand
 
-        # Recover joints for evaluation
-        vertices_ref, joints_ref = self.feats2joints(feats_ref)
-        vertices_rst, joints_rst = self.feats2joints(feats_rst)
+        if compute_eval_artifacts:
+            # Recover joints for evaluation from model feature space.
+            vertices_ref, joints_ref = self.feats2joints(feats_ref)
+            vertices_rst, joints_rst = self.feats2joints(feats_rst)
 
-        # Renorm for evaluation
+        # Renorm for evaluation/logging
         feats_ref = self.datamodule.renorm4t2m(feats_ref)
         feats_rst = self.datamodule.renorm4t2m(feats_rst)
+
+        if not compute_eval_artifacts:
+            return {
+                "m_ref": feats_ref,
+                "m_rst": feats_rst,
+                "length": lengths,
+                "lengths_rst": rst_len,
+            }
 
         # return set
         rs_set = {
@@ -587,20 +596,22 @@ class MotionGPT(BaseModel):
                         )
             elif self.hparams.stage in ["lm_instruct", "lm_pretrain", "lm_rl"]:
                 if self.hparams.task == "t2m":
-                    rs_set = self.val_t2m_forward(batch)
-                    getattr(self.metrics, 'TM2TMetrics').update(
-                            feats_rst=rs_set["m_rst"],
-                            feats_ref=rs_set["m_ref"],
-                            joints_rst=rs_set["joints_rst"], 
-                            joints_ref=rs_set["joints_ref"],
-                            vertices_rst=rs_set["vertices_rst"], 
-                            vertices_ref=rs_set["vertices_ref"],
-                            lengths=lengths,
-                            lengths_rst=rs_set['lengths_rst'],
-                            split=split,
-                            src=src,
-                            name=name
-                        )
+                    skip_test_metrics = split == "test" and bool(getattr(self.hparams.cfg.TEST, "SKIP_METRICS", False))
+                    rs_set = self.val_t2m_forward(batch, compute_eval_artifacts=not skip_test_metrics)
+                    if not skip_test_metrics:
+                        getattr(self.metrics, 'TM2TMetrics').update(
+                                feats_rst=rs_set["m_rst"],
+                                feats_ref=rs_set["m_ref"],
+                                joints_rst=rs_set["joints_rst"], 
+                                joints_ref=rs_set["joints_ref"],
+                                vertices_rst=rs_set["vertices_rst"], 
+                                vertices_ref=rs_set["vertices_ref"],
+                                lengths=lengths,
+                                lengths_rst=rs_set['lengths_rst'],
+                                split=split,
+                                src=src,
+                                name=name
+                            )
                 elif self.hparams.task == "m2t":
                     rs_set_m2t = self.val_m2t_forward(batch)
                     getattr(self.metrics, 'M2TMetrics').update(

@@ -34,7 +34,21 @@ class BaseModel(LightningModule):
         os.makedirs(self.output_dir, exist_ok=True)
 
     def training_step(self, batch, batch_idx):
-        return self.allsplit_step("train", batch, batch_idx)
+        loss = self.allsplit_step("train", batch, batch_idx)
+        if isinstance(loss, torch.Tensor):
+            batch_size = self._infer_batch_size(batch)
+            # Show live single-line progress metric in the progress bar.
+            self.log(
+                "pbar/train_loss_step",
+                loss.detach(),
+                prog_bar=True,
+                logger=False,
+                on_step=True,
+                on_epoch=False,
+                batch_size=batch_size,
+                sync_dist=False,
+            )
+        return loss
 
     def validation_step(self, batch, batch_idx):
         return self.allsplit_step("val", batch, batch_idx)
@@ -76,6 +90,17 @@ class BaseModel(LightningModule):
         # Write to log only if not sanity check
         if not self.trainer.sanity_checking:
             self.log_dict(dico, sync_dist=True, rank_zero_only=True)
+            if "total/train" in dico:
+                self.log(
+                    "pbar/train_loss_epoch",
+                    float(dico["total/train"]),
+                    prog_bar=True,
+                    logger=False,
+                    on_step=False,
+                    on_epoch=True,
+                    sync_dist=True,
+                    rank_zero_only=True,
+                )
         # dist.barrier()
 
     def on_validation_epoch_end(self):
@@ -90,13 +115,34 @@ class BaseModel(LightningModule):
         # Write to log only if not sanity check
         if not self.trainer.sanity_checking:
             self.log_dict(dico, sync_dist=True, rank_zero_only=True)
+            pbar_metrics = {}
+            if "total/val" in dico:
+                pbar_metrics["pbar/val_loss"] = float(dico["total/val"])
+            if "Metrics/how2sign_DTW_MPJPE_PA_lhand" in dico:
+                pbar_metrics["pbar/h2s_hand"] = float(dico["Metrics/how2sign_DTW_MPJPE_PA_lhand"])
+            if "Metrics/csl_DTW_MPJPE_PA_lhand" in dico:
+                pbar_metrics["pbar/csl_hand"] = float(dico["Metrics/csl_DTW_MPJPE_PA_lhand"])
+            if "Metrics/phoenix_DTW_MPJPE_PA_lhand" in dico:
+                pbar_metrics["pbar/phx_hand"] = float(dico["Metrics/phoenix_DTW_MPJPE_PA_lhand"])
+            if pbar_metrics:
+                self.log_dict(
+                    pbar_metrics,
+                    prog_bar=True,
+                    logger=False,
+                    on_step=False,
+                    on_epoch=True,
+                    sync_dist=True,
+                    rank_zero_only=True,
+                )
             # print('dico', dico)
         # dist.barrier()
         # print(f'{dist.get_rank()}: val epoch end')
 
     def on_test_epoch_end(self):
+        skip_test_metrics = bool(getattr(self.hparams.cfg.TEST, "SKIP_METRICS", False))
+        rank = self._get_rank_safe()
         #print before sync
-        if 'lm' in self.hparams.stage:
+        if 'lm' in self.hparams.stage and not skip_test_metrics:
             name2scores = getattr(self.metrics.TM2TMetrics, 'name2scores')
             metrics = ["how2sign_DTW_MPJPE_PA_lhand", "how2sign_DTW_MPJPE_PA_rhand", "how2sign_DTW_MPJPE_PA_body", 
                            "csl_DTW_MPJPE_PA_lhand", "csl_DTW_MPJPE_PA_rhand", "csl_DTW_MPJPE_PA_body",
@@ -110,19 +156,23 @@ class BaseModel(LightningModule):
                     count[n] = count[n] + 1
             for k in scores.keys():
                 scores[k] = scores[k] / max(count[k], 1)
-            print('rank: ', torch.distributed.get_rank(), scores)
+            print('rank: ', rank, scores)
 
         # Log metrics
-        dico = self.metrics_log_dict()
+        dico = {} if skip_test_metrics else self.metrics_log_dict()
         # Write to log only if not sanity check
         if not self.trainer.sanity_checking:
-            self.log_dict(dico, sync_dist=True, rank_zero_only=True)
+            if dico:
+                self.log_dict(dico, sync_dist=True, rank_zero_only=True)
         # self.save_npy(self.test_step_outputs)
 
         # save prediction
-        save_dir = os.path.join(self.output_dir, f'{self.hparams.cfg.TEST.SPLIT}_rank_'+str(torch.distributed.get_rank()))
+        save_dir = os.path.join(self.output_dir, f'{self.hparams.cfg.TEST.SPLIT}_rank_'+str(rank))
         os.makedirs(save_dir, exist_ok=True)
-        if 'lm' in self.hparams.stage:
+        if skip_test_metrics:
+            with open(os.path.join(save_dir, 'test_scores.json'), 'w') as f:
+                json.dump({"info": "SKIP_METRICS=True, quantitative metrics not computed in this run."}, f)
+        elif 'lm' in self.hparams.stage:
             with open(os.path.join(save_dir, 'test_scores.json'), 'w') as f:
                 json.dump(getattr(self.metrics.TM2TMetrics, 'name2scores'), f)
         elif 'vae' in self.hparams.stage:
@@ -161,6 +211,27 @@ class BaseModel(LightningModule):
             "epoch": float(self.trainer.current_epoch),
             "step": float(self.trainer.current_epoch)
         }
+
+    @staticmethod
+    def _infer_batch_size(batch):
+        if isinstance(batch, dict):
+            for key in ("motion", "source_motion", "target_motion", "text"):
+                if key in batch:
+                    value = batch[key]
+                    if hasattr(value, "shape") and len(value.shape) > 0:
+                        return int(value.shape[0])
+                    if isinstance(value, list):
+                        return len(value)
+        try:
+            return int(len(batch))
+        except Exception:
+            return 1
+
+    @staticmethod
+    def _get_rank_safe():
+        if dist.is_available() and dist.is_initialized():
+            return int(dist.get_rank())
+        return 0
 
     def loss_log_dict(self, split: str):
         losses = self._losses['losses_' + split]

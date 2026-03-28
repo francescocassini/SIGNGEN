@@ -1,0 +1,33 @@
+Force no debugging when testing
+mean path ../data/CSL-Daily/mean.pt std_path:  ../data/CSL-Daily/std.pt
+loading how2sign data... 2310
+how2sign usable: 2308 (missing poses: 0)
+loading csl data... 1176
+csl usable: 1176 (missing poses: 0)
+test--loading phoenix data... 642
+phoenix usable: 642 (missing poses: 0)
+Data loading done. All: 4126, How2Sign: 2308, CSL: 1176, Phoenix: 642
+load rhand vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+load hand vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+load vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+

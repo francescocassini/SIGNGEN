@@ -1,0 +1,18 @@
+.git
+.venv
+__pycache__
+*.pyc
+
+# Large runtime artifacts
+data
+deps
+experiments
+experiments_1
+results
+logs
+visualize
+wandb
+slurm
+
+# Local helper files
+COMMIT_USED.txt

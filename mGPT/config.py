@@ -96,7 +96,7 @@ def parse_args(phase="train"):
     group.add_argument("--use_gpus",
                            type=str,
                            required=False,
-                           default='2,3,4,5,6,7',
+                           default='0',
                            help="cuda environ devices")
     
     # Parse for each phase
@@ -122,6 +122,18 @@ def parse_args(phase="train"):
                            action="store_true",
                            required=False,
                            help="debug or not")
+        group.add_argument("--checkpoint",
+                           type=str,
+                           required=False,
+                           help="checkpoint path for test/inference")
+        group.add_argument("--test_max_samples",
+                           type=int,
+                           required=False,
+                           help="limit number of TEST samples (preview mode)")
+        group.add_argument("--skip_metrics",
+                           action="store_true",
+                           required=False,
+                           help="skip expensive test metrics (faster preview)")
 
 
     if phase == "demo":
@@ -192,6 +204,12 @@ def parse_args(phase="train"):
         cfg.NUM_NODES = params.num_nodes if params.num_nodes else cfg.NUM_NODES
         cfg.model.params.task = params.task if params.task else cfg.model.params.task
         cfg.DEBUG = not params.nodebug if params.nodebug is not None else cfg.DEBUG
+        if phase == "test" and params.checkpoint:
+            cfg.TEST.CHECKPOINTS = params.checkpoint
+        if phase == "test" and params.test_max_samples is not None:
+            cfg.TEST.MAX_SAMPLES = int(params.test_max_samples)
+        if phase == "test" and params.skip_metrics:
+            cfg.TEST.SKIP_METRICS = True
 
         # Force no debug in test
         if phase == "test":

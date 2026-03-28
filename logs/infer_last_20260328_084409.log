@@ -1,0 +1,36 @@
+Force no debugging when testing
+mean path ../data/CSL-Daily/mean.pt std_path:  ../data/CSL-Daily/std.pt
+loading how2sign data... 2310
+how2sign usable: 32 (missing poses: 0)
+Data loading done. All: 32, How2Sign: 32, CSL: 0, Phoenix: 0
+load rhand vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+load hand vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+load vae...
+
+=======Check Weights Loading======
+Weights not used from pretrained file:
+---------------------------
+Weights not loaded into new model:
+===================================
+
+Testing ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4/4 0:00:06 • 0:00:00 0.74it/s  
+                                                                                        Mean Metrics                                                                                          
+                                                                                     ┏━━━━━━━━━┳━━━━━━━┓                                                                                      
+                                                                                     ┃ Metrics ┃ Value ┃                                                                                      
+                                                                                     ┡━━━━━━━━━╇━━━━━━━┩                                                                                      
+                                                                                     └─────────┴───────┘                                                                                      
+Finished testing on ckpt:  experiments/mgpt/SOKE/checkpoints/last.ckpt
