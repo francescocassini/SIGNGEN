@@ -1,6 +1,6 @@
 # HANDOFF - SOKE (Signs as Tokens)
 
-Ultimo aggiornamento: 2026-03-28 (Europe/Rome)
+Ultimo aggiornamento: 2026-03-29 (Europe/Rome)
 
 ## 1) Obiettivo del progetto
 Portare la pipeline SOKE in stato **end-to-end funzionante** (train/inferenza/valutazione/visualizzazione), con priorita' immediata su:
@@ -142,3 +142,26 @@ bash scripts/run_inference_complete.sh all
 1. Presenza di `results/mgpt/SOKE_INFER/test_rank_0/test_scores.json`.
 2. Presenza di file `results/mgpt/SOKE_INFER/test_rank_0/*.pkl`.
 3. Log di inferenza che arriva a fine test senza interrupt.
+
+## 10) Dataset privato HF + auto-sync (nuovo, 2026-03-29)
+### Implementato
+- Nuovo modulo: `mGPT/utils/dataset_autodownload.py`
+  - controlla la presenza dei file minimi dataset (How2Sign/CSL/Phoenix + mean/std),
+  - se mancanti, usa repo HF privata via variabile `SOKE_HF_DATASET_REPO`,
+  - tenta `git clone`/`git pull` + `git lfs pull`,
+  - ricontrolla i file richiesti e fallisce con errore esplicito se incompleto.
+- Integrazione nel runtime:
+  - `mGPT/data/H2S.py` ora invoca `ensure_dataset_available(cfg)` prima del `torch.load(mean/std)`.
+  - Effetto: train e test usano auto-sync senza cambiare comandi principali.
+- Script di upload dataset privato:
+  - `scripts/hf_dataset_push_private.sh <USER/REPO> [LOCAL_DATA_DIR]`
+  - inizializza git, imposta origin HF datasets, abilita git-lfs, traccia estensioni grandi, commit/push.
+
+### Variabili operative
+- `SOKE_DATA_ROOT` (consigliato: `/home/cirillo/Desktop/SOKE_DATA`)
+- `SOKE_H2S_ROOT`, `SOKE_CSL_ROOT`, `SOKE_PHOENIX_ROOT` (via helper script)
+- `SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO_PRIVATA>`
+
+### Documentazione aggiornata
+- `DATASET_PRIVATE_HF.md` (flusso upload + auto-download)
+- `README.md` (nota auto-download HF)

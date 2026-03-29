@@ -81,6 +81,22 @@
 - Test smoke verificato:
   - comando con `--test_max_samples 2 --skip_metrics` termina correttamente e produce log di avanzamento + completamento.
 
+## 2026-03-29
+### Fatto
+- Implementato auto-download dataset da Hugging Face (repo privata) quando file dataset sono mancanti:
+  - nuovo file `mGPT/utils/dataset_autodownload.py`.
+- Integrato auto-check/sync nel datamodule:
+  - `mGPT/data/H2S.py` chiama `ensure_dataset_available(cfg)` prima di caricare mean/std.
+- Aggiunto script upload dataset privato:
+  - `scripts/hf_dataset_push_private.sh`.
+- Aggiornata documentazione:
+  - `DATASET_PRIVATE_HF.md` (upload + auto-download),
+  - `README.md` (variabile `SOKE_HF_DATASET_REPO`).
+
+### Impatto operativo
+- Se la directory dataset locale e' vuota/incompleta, train/test tentano sync da HF automaticamente.
+- Il dataset resta esterno alla repo codice SOKE.
+
 ---
 
 ## Template aggiornamento rapido (da appendere ogni sessione)

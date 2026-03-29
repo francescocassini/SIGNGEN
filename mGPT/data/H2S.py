@@ -8,6 +8,7 @@ from . import BASEDataModule
 from .humanml import Text2MotionDatasetEval, Text2MotionDataset, Text2MotionDatasetCB, MotionDataset, H2SMotionDatasetVQ, MotionDatasetVQ, Text2MotionDatasetToken, Text2MotionDatasetM2T
 from .utils import humanml3d_collate
 from mGPT.utils.human_models import get_coord
+from mGPT.utils.dataset_autodownload import ensure_dataset_available
 
 
 class H2SDataModule(BASEDataModule):
@@ -46,6 +47,7 @@ class H2SDataModule(BASEDataModule):
         mean_path = cfg.DATASET.H2S.MEAN_PATH
         std_path = cfg.DATASET.H2S.STD_PATH
         print('mean path', mean_path, 'std_path: ', std_path)
+        ensure_dataset_available(cfg)
 
         self.hparams.mean = torch.load(mean_path)
         self.hparams.std = torch.load(std_path)

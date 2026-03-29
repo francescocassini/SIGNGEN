@@ -44,20 +44,36 @@ Replace `<USER>` and `<DATASET_REPO>`:
 ```bash
 huggingface-cli login
 huggingface-cli repo create <DATASET_REPO> --type dataset --private
-git lfs install
-git clone https://huggingface.co/datasets/<USER>/<DATASET_REPO> /home/cirillo/Desktop/SOKE_DATA
 ```
 
-Then copy your dataset files into `/home/cirillo/Desktop/SOKE_DATA`, commit, and push:
+Then push your existing local dataset folder:
 
 ```bash
-cd /home/cirillo/Desktop/SOKE_DATA
-git add .
-git commit -m "Initial private SOKE dataset upload"
-git push
+cd /home/cirillo/Desktop/SIGNGEN/SOKE
+scripts/hf_dataset_push_private.sh <USER>/<DATASET_REPO> /home/cirillo/Desktop/SOKE_DATA
 ```
 
-## 3) Use external dataset with SOKE
+## 3) Enable auto-download when dataset is missing
+SOKE now auto-checks required dataset files at startup (train/test).  
+If files are missing, it tries to clone/pull from your private HF dataset repo.
+
+Set:
+
+```bash
+export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
+```
+
+Recommended (same shell session):
+
+```bash
+cd /home/cirillo/Desktop/SIGNGEN/SOKE
+source scripts/set_data_root_env.sh /home/cirillo/Desktop/SOKE_DATA
+export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
+```
+
+If `/home/cirillo/Desktop/SOKE_DATA` is missing/incomplete, SOKE will sync it automatically from HF.
+
+## 4) Use external dataset with SOKE
 From SOKE repo:
 
 ```bash
@@ -71,19 +87,20 @@ Validate:
 ./scripts/check_soke_setup.sh
 ```
 
-## 4) New machine workflow
+## 5) New machine workflow
 After `git pull` on SOKE code repo:
 
 ```bash
 huggingface-cli login
-git lfs install
-git clone https://huggingface.co/datasets/<USER>/<DATASET_REPO> /home/cirillo/Desktop/SOKE_DATA
 cd /path/to/SOKE
 source scripts/set_data_root_env.sh /home/cirillo/Desktop/SOKE_DATA
+export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
 ./scripts/check_soke_setup.sh
 ```
 
-## 5) Notes
+You can skip manual `git clone` because auto-download handles first sync.
+
+## 6) Notes
 - Keep dataset repo private if data licenses require restricted access.
 - Do not commit `SOKE_DATA` inside the SOKE code repo.
 - `deps/` and `experiments/` are runtime/model artifacts and are already excluded from git in this repo.

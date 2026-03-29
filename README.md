@@ -46,6 +46,15 @@ Helper script:
 source scripts/set_data_root_env.sh /abs/path/SOKE_DATA
 ```
 
+Optional auto-download from private Hugging Face dataset repo:
+
+```bash
+export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
+```
+
+If required dataset files are missing, SOKE will try to clone/pull from:
+`https://huggingface.co/datasets/<USER>/<DATASET_REPO>`.
+
 
 ## Models
 ### Human Models
