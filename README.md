@@ -19,6 +19,7 @@ pip install -r requirements.txt
 ## Data
 For a practical setup with dataset outside the code repo (including private Hugging Face dataset repo), see:
 - `DATASET_PRIVATE_HF.md`
+- `DOCKER.md` (containerized train/inference with private HF dataset bootstrap)
 
 ### Continuous Sign Language Datasets
 How2Sign: [raw videos](https://how2sign.github.io/)(Green Screen RGB clips (frontal view)) and [split files](https://drive.google.com/drive/folders/1sPhBwmiWCXLZSHtM3fpotbz3BDgoYmco?usp=sharing).
@@ -50,10 +51,17 @@ Optional auto-download from private Hugging Face dataset repo:
 
 ```bash
 export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
+export HF_TOKEN=<your_hf_token>  # optional if already logged in locally
 ```
 
 If required dataset files are missing, SOKE will try to clone/pull from:
 `https://huggingface.co/datasets/<USER>/<DATASET_REPO>`.
+
+Explicit pre-download step (recommended for Docker entrypoint):
+
+```bash
+scripts/download_dataset_from_hf.sh <USER>/<DATASET_REPO> /abs/path/SOKE_DATA
+```
 
 
 ## Models

@@ -49,16 +49,22 @@ fi
 # Track common large file types used in SOKE datasets.
 git lfs track "*.pt" "*.pth" "*.ckpt" "*.bin" "*.npy" "*.npz" "*.pkl" "*.zip" "*.tar" "*.gz" "*.mp4" "*.avi" "*.mov"
 
+echo "[INFO] Step 1/3: staging files (this can take time on 38GB)"
 git add .gitattributes
-git add .
+git add --all --progress .
+
+echo "[INFO] LFS tracked files summary:"
+git lfs ls-files | wc -l | awk '{print "  tracked_lfs_files=" $1}'
+du -sh .git/lfs 2>/dev/null | awk '{print "  local_lfs_cache=" $1}'
 
 if git diff --cached --quiet; then
   echo "[INFO] No changes to commit."
 else
+  echo "[INFO] Step 2/3: commit metadata"
   git commit -m "Update private SOKE dataset"
 fi
 
-echo "[INFO] Pushing to https://huggingface.co/datasets/$REPO_ID"
-git push -u origin main
+echo "[INFO] Step 3/3: push to https://huggingface.co/datasets/$REPO_ID"
+git push --progress -u origin main
 
 echo "[OK] Dataset push completed."

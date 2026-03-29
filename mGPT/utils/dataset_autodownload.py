@@ -47,6 +47,28 @@ def _run(cmd, cwd=None, check=True):
     return subprocess.run(cmd, cwd=cwd, check=check)
 
 
+def _sync_with_hf_hub(repo_id: str, data_root: Path) -> bool:
+    try:
+        from huggingface_hub import snapshot_download
+    except Exception as e:
+        _log(f"huggingface_hub not available ({e}), fallback to git/lfs")
+        return False
+
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+    _log("trying snapshot download via huggingface_hub")
+    data_root.mkdir(parents=True, exist_ok=True)
+
+    snapshot_download(
+        repo_id=repo_id,
+        repo_type="dataset",
+        local_dir=str(data_root),
+        local_dir_use_symlinks=False,
+        token=token,
+        resume_download=True,
+    )
+    return True
+
+
 def ensure_dataset_available(cfg):
     req = _required_paths(cfg)
     if _all_present(req):
@@ -68,22 +90,29 @@ def ensure_dataset_available(cfg):
 
     data_root.parent.mkdir(parents=True, exist_ok=True)
 
-    # Best effort LFS setup.
-    _run(["git", "lfs", "install"], check=False)
+    # Preferred: HF Hub API (supports HF_TOKEN without git credentials).
+    synced = False
+    try:
+        synced = _sync_with_hf_hub(repo_id, data_root)
+    except Exception as e:
+        _log(f"snapshot download failed ({e}), fallback to git/lfs")
 
-    if not data_root.exists():
-        _run(["git", "clone", hf_url, str(data_root)])
-    elif (data_root / ".git").exists():
-        _run(["git", "-C", str(data_root), "pull"], check=False)
-    else:
-        raise RuntimeError(
-            f"Data root exists but is not a git repo: {data_root}\n"
-            "Please remove/rename it, or set SOKE_DATA_ROOT to a clean path."
-        )
+    # Fallback: git-lfs clone/pull.
+    if not synced:
+        _run(["git", "lfs", "install"], check=False)
 
-    # Pull LFS files if available.
-    if (data_root / ".git").exists():
-        _run(["git", "-C", str(data_root), "lfs", "pull"], check=False)
+        if not data_root.exists():
+            _run(["git", "clone", hf_url, str(data_root)])
+        elif (data_root / ".git").exists():
+            _run(["git", "-C", str(data_root), "pull"], check=False)
+        else:
+            raise RuntimeError(
+                f"Data root exists but is not a git repo: {data_root}\n"
+                "Please remove/rename it, or set SOKE_DATA_ROOT to a clean path."
+            )
+
+        if (data_root / ".git").exists():
+            _run(["git", "-C", str(data_root), "lfs", "pull"], check=False)
 
     # Re-check
     req_after = _required_paths(cfg)

@@ -1,0 +1,23 @@
+services:
+  soke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: signgen/soke:local
+    container_name: soke
+    working_dir: /workspace/SOKE
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SOKE_DATA_ROOT=/workspace/SOKE_DATA
+      - PYTHONPATH=/workspace/SOKE
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    volumes:
+      - ./:/workspace/SOKE
+      - ${SOKE_DATA_ROOT_HOST:-/home/cirillo/Desktop/SOKE_DATA}:/workspace/SOKE_DATA
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+    gpus: all
+    stdin_open: true
+    tty: true
+    command: ["train"]

@@ -28,3 +28,6 @@ slurm/out/
 *.csv
 *.zip
 *.png
+.env
+.env.*
+!.env.example

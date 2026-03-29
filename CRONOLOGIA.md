@@ -92,10 +92,28 @@
 - Aggiornata documentazione:
   - `DATASET_PRIVATE_HF.md` (upload + auto-download),
   - `README.md` (variabile `SOKE_HF_DATASET_REPO`).
+- Aggiunto script esplicito di bootstrap dataset (utile per Docker entrypoint):
+  - `scripts/download_dataset_from_hf.sh`.
+- Auto-download esteso con preferenza `huggingface_hub.snapshot_download` (supporta `HF_TOKEN`) con fallback git-lfs.
 
 ### Impatto operativo
 - Se la directory dataset locale e' vuota/incompleta, train/test tentano sync da HF automaticamente.
 - Il dataset resta esterno alla repo codice SOKE.
+
+### Dockerizzazione (nuovo)
+- Aggiunti file:
+  - `Dockerfile`
+  - `docker-compose.yml`
+  - `docker/entrypoint.sh`
+  - `.env.example`
+  - `DOCKER.md`
+- Design operativo:
+  - il container usa `SOKE_DATA_ROOT=/workspace/SOKE_DATA` montato da host,
+  - in entrypoint esegue bootstrap dataset da HF privata (`scripts/download_dataset_from_hf.sh`) se `SOKE_HF_DATASET_REPO` e' presente,
+  - poi avvia `train` o `infer` con comandi standard.
+- Sicurezza credenziali:
+  - token HF via env (`HF_TOKEN`), non nel codice;
+  - `.env` ignorato da git (`.gitignore`).
 
 ---
 

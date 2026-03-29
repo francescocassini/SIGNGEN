@@ -63,6 +63,12 @@ Set:
 export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
 ```
 
+For private access in Docker/servers, pass token as env (do not hardcode in repo):
+
+```bash
+export HF_TOKEN=<your_hf_token>
+```
+
 Recommended (same shell session):
 
 ```bash
@@ -72,6 +78,12 @@ export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
 ```
 
 If `/home/cirillo/Desktop/SOKE_DATA` is missing/incomplete, SOKE will sync it automatically from HF.
+
+You can also force the download as an explicit first step:
+
+```bash
+scripts/download_dataset_from_hf.sh <USER>/<DATASET_REPO> /home/cirillo/Desktop/SOKE_DATA
+```
 
 ## 4) Use external dataset with SOKE
 From SOKE repo:

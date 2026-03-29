@@ -156,6 +156,10 @@ bash scripts/run_inference_complete.sh all
 - Script di upload dataset privato:
   - `scripts/hf_dataset_push_private.sh <USER/REPO> [LOCAL_DATA_DIR]`
   - inizializza git, imposta origin HF datasets, abilita git-lfs, traccia estensioni grandi, commit/push.
+- Script bootstrap download (Docker-friendly):
+  - `scripts/download_dataset_from_hf.sh <USER/REPO> [TARGET_DIR]`
+  - usa `HF_TOKEN`/`HUGGINGFACE_HUB_TOKEN` da env (nessuna chiave nel codice repo).
+- Auto-sync ora preferisce `huggingface_hub.snapshot_download` (token env) e usa git-lfs solo come fallback.
 
 ### Variabili operative
 - `SOKE_DATA_ROOT` (consigliato: `/home/cirillo/Desktop/SOKE_DATA`)
@@ -165,3 +169,23 @@ bash scripts/run_inference_complete.sh all
 ### Documentazione aggiornata
 - `DATASET_PRIVATE_HF.md` (flusso upload + auto-download)
 - `README.md` (nota auto-download HF)
+
+## 11) Dockerizzazione (nuovo, 2026-03-29)
+### File aggiunti
+- `Dockerfile`
+- `docker-compose.yml`
+- `docker/entrypoint.sh`
+- `.env.example`
+- `DOCKER.md`
+
+### Comportamento
+- Entry-point container:
+  1. imposta path dataset (`/workspace/SOKE_DATA`),
+  2. se `SOKE_HF_DATASET_REPO` e' valorizzata, lancia `scripts/download_dataset_from_hf.sh` (usa `HF_TOKEN` da env),
+  3. avvia `train` o `infer`.
+- Nessuna chiave hardcoded nella repo.
+
+### Deploy remoto previsto
+- Build locale/test locale con `docker compose`.
+- Publish immagine su registry privato (consigliato GHCR).
+- Pull su server remoto via SSH + `docker pull` e run con env vars/token.
