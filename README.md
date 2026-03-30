@@ -63,6 +63,17 @@ Explicit pre-download step (recommended for Docker entrypoint):
 scripts/download_dataset_from_hf.sh <USER>/<DATASET_REPO> /abs/path/SOKE_DATA
 ```
 
+Recommended upload mode for very large datasets:
+- build and push a few archives instead of millions of raw files.
+
+```bash
+scripts/create_dataset_archives.sh /abs/path/SOKE_DATA /tmp/SOKE_DATA_ARCHIVES
+scripts/hf_dataset_push_archives.sh <USER>/<DATASET_REPO> /tmp/SOKE_DATA_ARCHIVES
+```
+
+If the HF repo contains `How2Sign.tar.gz`, `CSL-Daily.tar.gz`, `Phoenix_2014T.tar.gz`,
+download scripts/runtime now auto-extract them into `SOKE_DATA`.
+
 
 ## Models
 ### Human Models

@@ -47,6 +47,7 @@ docker compose --env-file .env run --rm soke train
 ## Notes
 - Dataset is external to code repo and mounted at `/workspace/SOKE_DATA`.
 - If dataset files are missing and `SOKE_HF_DATASET_REPO` is set, container downloads from private HF repo.
+- If HF repo provides `How2Sign.tar.gz`, `CSL-Daily.tar.gz`, `Phoenix_2014T.tar.gz`, bootstrap auto-extracts them after download.
 - Credentials are passed only via `.env` / runtime env vars (never hardcoded in git).
 
 ## Publish image (for remote SSH server pull)

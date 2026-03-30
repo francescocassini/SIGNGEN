@@ -115,6 +115,35 @@
   - token HF via env (`HF_TOKEN`), non nel codice;
   - `.env` ignorato da git (`.gitignore`).
 
+## 2026-03-30
+### Fatto
+- Validato in modo end-to-end il flusso dataset privata HF in ambiente locale:
+  - upload completato su repo `Francesco77/soke-private-data`,
+  - download completato via `scripts/download_dataset_from_hf.sh`,
+  - estrazione automatica archivi riuscita,
+  - train avviabile dopo bootstrap dataset.
+- Adottata strategia **archive-first** per evitare push ingestibile di milioni di file raw:
+  - creati e pubblicati `How2Sign.tar.gz`, `CSL-Daily.tar.gz`, `Phoenix_2014T.tar.gz`.
+- Aggiornati strumenti operativi:
+  - nuovo `scripts/create_dataset_archives.sh`,
+  - nuovo `scripts/hf_dataset_push_archives.sh`,
+  - `scripts/hf_dataset_push_private.sh` con guard rail contro raw push massivo,
+  - auto-extract archivi in:
+    - `scripts/download_dataset_from_hf.sh`,
+    - `mGPT/utils/dataset_autodownload.py`.
+
+### Impatto operativo
+- Obiettivo dataset HF sbloccato: dataset online, scaricabile e riproducibile senza setup manuale dei file raw.
+- Ridotto drasticamente il rischio di upload estremamente lento dovuto a cardinalita' file elevata.
+
+### Prossimi passi operativi
+1. Validare identico flusso dentro Docker (`docker compose run --rm soke train` con `SOKE_HF_DATASET_REPO` e `HF_TOKEN`).
+2. Implementare obiettivo 3: callback ogni 50 epoche con inferenza subset + GIF GT vs Pred.
+3. Implementare obiettivo 4: logging GPU avanzato e report multi-GPU per rank.
+
+### Nota sicurezza
+- Se un token HF viene esposto in terminale/chat, ruotarlo subito da Hugging Face settings.
+
 ---
 
 ## Template aggiornamento rapido (da appendere ogni sessione)

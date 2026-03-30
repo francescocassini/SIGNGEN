@@ -1,6 +1,8 @@
 import os
 import subprocess
 from pathlib import Path
+import tarfile
+import zipfile
 
 
 def _log(msg: str):
@@ -45,6 +47,38 @@ def _resolve_data_root(cfg):
 def _run(cmd, cwd=None, check=True):
     _log("run: " + " ".join(cmd))
     return subprocess.run(cmd, cwd=cwd, check=check)
+
+
+def _extract_archive(archive_path: Path, target_root: Path):
+    _log(f"extracting archive: {archive_path.name}")
+    if archive_path.suffix == ".zip":
+        with zipfile.ZipFile(archive_path, "r") as zf:
+            zf.extractall(target_root)
+        return
+
+    # tar, tar.gz, tgz
+    with tarfile.open(archive_path, "r:*") as tf:
+        tf.extractall(target_root)
+
+
+def _extract_known_archives_if_present(data_root: Path):
+    # Archive-first mode: upload a few big files instead of millions of tiny files.
+    archive_names = [
+        "How2Sign.tar.gz",
+        "CSL-Daily.tar.gz",
+        "Phoenix_2014T.tar.gz",
+        "How2Sign.zip",
+        "CSL-Daily.zip",
+        "Phoenix_2014T.zip",
+    ]
+    found = False
+    for name in archive_names:
+        archive_path = data_root / name
+        if archive_path.exists():
+            found = True
+            _extract_archive(archive_path, data_root)
+    if found:
+        _log("archive extraction completed")
 
 
 def _sync_with_hf_hub(repo_id: str, data_root: Path) -> bool:
@@ -115,6 +149,9 @@ def ensure_dataset_available(cfg):
             _run(["git", "-C", str(data_root), "lfs", "pull"], check=False)
 
     # Re-check
+    if not _all_present(req):
+        _extract_known_archives_if_present(data_root)
+
     req_after = _required_paths(cfg)
     if not _all_present(req_after):
         missing = [str(p) for p in req_after if not p.exists()][:10]

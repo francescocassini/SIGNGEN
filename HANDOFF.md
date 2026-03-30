@@ -1,6 +1,6 @@
 # HANDOFF - SOKE (Signs as Tokens)
 
-Ultimo aggiornamento: 2026-03-29 (Europe/Rome)
+Ultimo aggiornamento: 2026-03-30 (Europe/Rome)
 
 ## 1) Obiettivo del progetto
 Portare la pipeline SOKE in stato **end-to-end funzionante** (train/inferenza/valutazione/visualizzazione), con priorita' immediata su:
@@ -189,3 +189,75 @@ bash scripts/run_inference_complete.sh all
 - Build locale/test locale con `docker compose`.
 - Publish immagine su registry privato (consigliato GHCR).
 - Pull su server remoto via SSH + `docker pull` e run con env vars/token.
+
+## 12) Piano aggiornato (richiesta utente, 2026-03-29)
+### Obiettivo 1: Docker scarica dataset HF privata (38GB)
+- Stato: **COMPLETATO (locale + runtime), da validare in Docker end-to-end**
+- Fatto:
+  - auto-sync runtime in `mGPT/utils/dataset_autodownload.py`,
+  - script bootstrap `scripts/download_dataset_from_hf.sh`,
+  - entrypoint Docker che avvia bootstrap dataset se `SOKE_HF_DATASET_REPO` e' impostata,
+  - upload HF completato con strategia archive-first (`How2Sign.tar.gz`, `CSL-Daily.tar.gz`, `Phoenix_2014T.tar.gz`),
+  - download reale verificato: snapshot da HF + estrazione locale completata con successo.
+- Manca:
+  - validazione esplicita dello stesso flusso dentro container Docker.
+
+### Obiettivo 2: Docker esegue SOKE come in locale
+- Stato: **PARZIALE AVANZATO**
+- Fatto:
+  - `Dockerfile`, `docker-compose.yml`, `docker/entrypoint.sh`,
+  - comandi `train` e `infer` in entrypoint.
+- Manca:
+  - test end-to-end reale su macchina utente (build + run train + run infer),
+  - eventuale tuning multi-GPU (default attuale single GPU).
+
+### Obiettivo 3: Ogni 50 epoche, inferenza subset test + GIF GT vs Pred
+- Stato: **MANCANTE**
+- Fatto:
+  - esiste tool rendering `scripts/preview_test_sample.py`,
+  - esiste pipeline inferenza `scripts/run_inference_complete.sh`.
+- Manca:
+  - callback train `every_n_epochs=50` che lanci test su subset,
+  - post-process automatico da `.pkl` a GIF confronto GT vs Pred,
+  - directory output standard per artefatti periodici.
+
+### Obiettivo 4: Logging training avanzato (stato, loss/metriche, GPU, multi-GPU)
+- Stato: **PARZIALE**
+- Fatto:
+  - progress bar + callback metriche in `mGPT/callback.py`,
+  - CSV logger in `train.py`,
+  - supporto DDP se `DEVICE` contiene piu' GPU.
+- Manca:
+  - logger GPU integrato nel training log (util/mem/temp/power),
+  - report chiaro per rank/GPU in multi-GPU,
+  - dashboard operativa unica (W&B o log parser) pronta per produzione Docker.
+
+## 13) Aggiornamento operativo 2026-03-30 (milestone HF dataset)
+### Cosa e' stato chiuso
+- Repo dataset privata HF ripulita e ripopolata in modalita' archive-first.
+- Upload completato con successo (3 oggetti LFS grandi, no milioni di file piccoli):
+  - `How2Sign.tar.gz`
+  - `CSL-Daily.tar.gz`
+  - `Phoenix_2014T.tar.gz`
+- Verifica remota positiva: `list_repo_files` restituisce i 3 archivi + `.gitattributes`.
+- Download locale verificato con:
+  - `scripts/download_dataset_from_hf.sh`,
+  - env `SOKE_HF_DATASET_REPO` + `HF_TOKEN`,
+  - estrazione automatica archivi completata.
+- Esito: dataset online, scaricabile, e riutilizzabile in train/test senza setup manuale dei file raw.
+
+### Migliorie tecniche introdotte
+- `scripts/create_dataset_archives.sh`: genera archivi dataset da root locale.
+- `scripts/hf_dataset_push_archives.sh`: push HF solo archivi (flusso consigliato).
+- `scripts/hf_dataset_push_private.sh`: guard rail contro push raw con milioni di file.
+- `scripts/download_dataset_from_hf.sh`: estrazione automatica archivi dopo snapshot.
+- `mGPT/utils/dataset_autodownload.py`: auto-extract archivi se presenti in data root.
+
+### Priorita' successive (piano attivo)
+1. **Obiettivo 2 (Docker e2e):** eseguire `docker compose run --rm soke train` su ambiente GPU e verificare bootstrap dataset da HF + start training.
+2. **Obiettivo 3 (every 50 epochs):** implementare callback periodica inferenza subset test e pipeline GIF GT vs Pred.
+3. **Obiettivo 4 (logging avanzato):** integrare telemetria GPU (util/mem/temp/power) nel log di training e report rank-aware in multi-GPU.
+
+### Nota sicurezza operativa
+- Evitare di incollare token HF in log/chat/versioning.
+- Se un token e' stato esposto, rigenerarlo immediatamente dal pannello Hugging Face.

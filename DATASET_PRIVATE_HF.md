@@ -53,6 +53,19 @@ cd /home/cirillo/Desktop/SIGNGEN/SOKE
 scripts/hf_dataset_push_private.sh <USER>/<DATASET_REPO> /home/cirillo/Desktop/SOKE_DATA
 ```
 
+Recommended for very large datasets with millions of files (faster/more stable):
+
+```bash
+cd /home/cirillo/Desktop/SIGNGEN/SOKE
+scripts/create_dataset_archives.sh /home/cirillo/Desktop/SOKE_DATA /tmp/SOKE_DATA_ARCHIVES
+scripts/hf_dataset_push_archives.sh <USER>/<DATASET_REPO> /tmp/SOKE_DATA_ARCHIVES
+```
+
+Archive names expected by auto-download:
+- `How2Sign.tar.gz`
+- `CSL-Daily.tar.gz`
+- `Phoenix_2014T.tar.gz`
+
 ## 3) Enable auto-download when dataset is missing
 SOKE now auto-checks required dataset files at startup (train/test).  
 If files are missing, it tries to clone/pull from your private HF dataset repo.
@@ -78,6 +91,7 @@ export SOKE_HF_DATASET_REPO=<USER>/<DATASET_REPO>
 ```
 
 If `/home/cirillo/Desktop/SOKE_DATA` is missing/incomplete, SOKE will sync it automatically from HF.
+If archives are present in HF repo, SOKE now auto-extracts them locally.
 
 You can also force the download as an explicit first step:
 

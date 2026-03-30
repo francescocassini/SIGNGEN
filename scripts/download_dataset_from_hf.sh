@@ -19,6 +19,9 @@ export REPO_ID TARGET_DIR
 
 python - <<'PY'
 import os
+import tarfile
+import zipfile
+from pathlib import Path
 from huggingface_hub import snapshot_download
 
 repo_id = os.environ.get("REPO_ID")
@@ -36,6 +39,28 @@ snapshot_download(
     token=token,
     resume_download=True,
 )
+
+root = Path(target_dir)
+archive_names = [
+    "How2Sign.tar.gz",
+    "CSL-Daily.tar.gz",
+    "Phoenix_2014T.tar.gz",
+    "How2Sign.zip",
+    "CSL-Daily.zip",
+    "Phoenix_2014T.zip",
+]
+
+for name in archive_names:
+    p = root / name
+    if not p.exists():
+        continue
+    print(f"[INFO] Extracting {p.name} ...")
+    if p.suffix == ".zip":
+        with zipfile.ZipFile(p, "r") as zf:
+            zf.extractall(root)
+    else:
+        with tarfile.open(p, "r:*") as tf:
+            tf.extractall(root)
 
 print("[OK] Dataset sync completed.")
 PY
