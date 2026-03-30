@@ -25,7 +25,8 @@ create_tar() {
   local target_tar="$3"
 
   echo "[INFO] Creating $target_tar from $folder_name ..."
-  tar -C "$src_parent" -czf "$target_tar" "$folder_name"
+  # Dereference symlinks so archives contain real split files (Docker-safe).
+  tar --dereference -C "$src_parent" -czf "$target_tar" "$folder_name"
   du -sh "$target_tar"
 }
 

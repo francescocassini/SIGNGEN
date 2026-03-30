@@ -259,6 +259,31 @@ bash scripts/run_inference_complete.sh all
 3. **Obiettivo 4 (logging avanzato):** integrare telemetria GPU (util/mem/temp/power) nel log di training e report rank-aware in multi-GPU.
 4. Usare `DOCKER_PARITY_MAP.md` come runbook unico per equivalenza locale vs Docker (train, monitor, inferenza, GIF).
 
+## 14) Hotfix Docker training (2026-03-30 sera)
+### Problemi osservati
+1. Crash import in container:
+   - `ImportError: cannot import name 'GenerationMixin' from transformers.generation`
+   - causa: `transformers` non pinnato -> versione troppo nuova rispetto a `torch 2.3.1` dell'immagine base.
+2. Falso "missing dataset files" dopo download/extract:
+   - diversi split (`csl_clean.*`, `phoenix14t.*`, `how2sign_realigned_*.csv`) risultavano symlink assoluti verso path host (`/home/cirillo/...`),
+   - nel container quei symlink erano rotti, quindi i file risultavano mancanti.
+
+### Fix applicati
+- `requirements.txt`
+  - `transformers==4.41.2` (pin compatibile con stack torch Docker attuale).
+- `mGPT/utils/dataset_autodownload.py`
+  - aggiunta riparazione automatica split files da `data/splits/*` del repo quando mancanti/roken symlink.
+  - riparazione eseguita sia prima del sync HF che dopo l'estrazione archivi.
+- `scripts/download_dataset_from_hf.sh`
+  - aggiunta stessa logica di riparazione split post-download/post-extract.
+- `scripts/create_dataset_archives.sh`
+  - `tar --dereference` per includere file reali negli archivi futuri (non symlink).
+
+### Impatto
+- train in Docker non dovrebbe piu' fermarsi su `GenerationMixin`,
+- dataset check non dovrebbe piu' fallire per symlink spezzati,
+- i prossimi archivi HF saranno robusti anche su host/container diversi.
+
 ### Nota sicurezza operativa
 - Evitare di incollare token HF in log/chat/versioning.
 - Se un token e' stato esposto, rigenerarlo immediatamente dal pannello Hugging Face.

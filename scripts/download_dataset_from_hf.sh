@@ -16,17 +16,20 @@ echo "[INFO] Target dir: $TARGET_DIR"
 
 mkdir -p "$TARGET_DIR"
 export REPO_ID TARGET_DIR
+export SOKE_SPLITS_ROOT="${SOKE_SPLITS_ROOT:-$(cd "$(dirname "$0")/.." && pwd)/data/splits}"
 
 python - <<'PY'
 import os
 import tarfile
 import zipfile
+import shutil
 from pathlib import Path
 from huggingface_hub import snapshot_download
 
 repo_id = os.environ.get("REPO_ID")
 target_dir = os.environ.get("TARGET_DIR")
 token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+splits_root = Path(os.environ.get("SOKE_SPLITS_ROOT", "")).resolve()
 
 if not repo_id:
     raise SystemExit("REPO_ID not provided")
@@ -64,6 +67,60 @@ for name, marker in archive_specs:
     else:
         with tarfile.open(p, "r:*") as tf:
             tf.extractall(root)
+
+mapping = [
+    (
+        splits_root / "how2sign" / "how2sign_realigned_train_preprocessed_fps.csv",
+        root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+    ),
+    (
+        splits_root / "how2sign" / "how2sign_realigned_val_preprocessed_fps.csv",
+        root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+    ),
+    (
+        splits_root / "how2sign" / "how2sign_realigned_test_preprocessed_fps.csv",
+        root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+    ),
+    (
+        splits_root / "csl_daily" / "csl_clean.train",
+        root / "CSL-Daily" / "csl_clean.train",
+    ),
+    (
+        splits_root / "csl_daily" / "csl_clean.val",
+        root / "CSL-Daily" / "csl_clean.val",
+    ),
+    (
+        splits_root / "csl_daily" / "csl_clean.test",
+        root / "CSL-Daily" / "csl_clean.test",
+    ),
+    (
+        splits_root / "phoenix" / "phoenix14t.train",
+        root / "Phoenix_2014T" / "phoenix14t.train",
+    ),
+    (
+        splits_root / "phoenix" / "phoenix14t.dev",
+        root / "Phoenix_2014T" / "phoenix14t.dev",
+    ),
+    (
+        splits_root / "phoenix" / "phoenix14t.test",
+        root / "Phoenix_2014T" / "phoenix14t.test",
+    ),
+]
+
+if splits_root.exists():
+    repaired = 0
+    for src, dst in mapping:
+        if not src.exists():
+            continue
+        if dst.exists():
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.is_symlink() or dst.exists():
+            dst.unlink()
+        shutil.copy2(src, dst)
+        repaired += 1
+    if repaired:
+        print(f"[INFO] Repaired split files from repo: {repaired}")
 
 print("[OK] Dataset sync completed.")
 PY

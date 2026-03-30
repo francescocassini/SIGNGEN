@@ -4,6 +4,7 @@ from pathlib import Path
 import tarfile
 import time
 import zipfile
+import shutil
 
 
 def _log(msg: str):
@@ -47,6 +48,73 @@ def _resolve_data_root(cfg):
     # Fallback: infer as common parent for dataset roots.
     h2s_root = Path(cfg.DATASET.H2S.ROOT).resolve()
     return h2s_root.parent
+
+
+def _repo_root() -> Path:
+    # mGPT/utils/dataset_autodownload.py -> repo root is 2 levels up from mGPT/
+    return Path(__file__).resolve().parents[2]
+
+
+def _repair_split_files_from_repo(cfg):
+    repo_root = _repo_root()
+    split_root = repo_root / "data" / "splits"
+    if not split_root.exists():
+        return 0
+
+    mapping = [
+        (
+            split_root / "how2sign" / "how2sign_realigned_train_preprocessed_fps.csv",
+            Path(cfg.DATASET.H2S.ROOT) / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+        ),
+        (
+            split_root / "how2sign" / "how2sign_realigned_val_preprocessed_fps.csv",
+            Path(cfg.DATASET.H2S.ROOT) / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+        ),
+        (
+            split_root / "how2sign" / "how2sign_realigned_test_preprocessed_fps.csv",
+            Path(cfg.DATASET.H2S.ROOT) / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+        ),
+        (
+            split_root / "csl_daily" / "csl_clean.train",
+            Path(cfg.DATASET.H2S.CSL_ROOT) / "csl_clean.train",
+        ),
+        (
+            split_root / "csl_daily" / "csl_clean.val",
+            Path(cfg.DATASET.H2S.CSL_ROOT) / "csl_clean.val",
+        ),
+        (
+            split_root / "csl_daily" / "csl_clean.test",
+            Path(cfg.DATASET.H2S.CSL_ROOT) / "csl_clean.test",
+        ),
+        (
+            split_root / "phoenix" / "phoenix14t.train",
+            Path(cfg.DATASET.H2S.PHOENIX_ROOT) / "phoenix14t.train",
+        ),
+        (
+            split_root / "phoenix" / "phoenix14t.dev",
+            Path(cfg.DATASET.H2S.PHOENIX_ROOT) / "phoenix14t.dev",
+        ),
+        (
+            split_root / "phoenix" / "phoenix14t.test",
+            Path(cfg.DATASET.H2S.PHOENIX_ROOT) / "phoenix14t.test",
+        ),
+    ]
+
+    repaired = 0
+    for src, dst in mapping:
+        if not src.exists():
+            continue
+        if dst.exists():
+            continue
+
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if dst.is_symlink() or dst.exists():
+            dst.unlink()
+        shutil.copy2(src, dst)
+        repaired += 1
+        _log(f"repaired split file from repo: {dst}")
+
+    return repaired
 
 
 def _run(cmd, cwd=None, check=True):
@@ -116,6 +184,12 @@ def _sync_with_hf_hub(repo_id: str, data_root: Path) -> bool:
 
 def ensure_dataset_available(cfg):
     req = _required_paths(cfg)
+
+    repaired_local = _repair_split_files_from_repo(cfg)
+    if repaired_local > 0:
+        _log(f"local split repair applied: {repaired_local}")
+        req = _required_paths(cfg)
+
     if _all_present(req):
         _log("dataset already present; skip HF sync")
         return
@@ -168,6 +242,9 @@ def ensure_dataset_available(cfg):
     # Re-check
     if not _all_present(req):
         _extract_known_archives_if_present(data_root)
+        repaired_after_extract = _repair_split_files_from_repo(cfg)
+        if repaired_after_extract > 0:
+            _log(f"post-extract split repair applied: {repaired_after_extract}")
 
     req_after = _required_paths(cfg)
     if not _all_present(req_after):
