@@ -230,24 +230,70 @@ class progressLogger(Callback):
                  logger,
                  metric_monitor: dict,
                  precision: int = 3,
-                 log_every_n_steps: int = 1):
+                 log_every_n_steps: int = 1,
+                 batch_log_every_n_steps: int = 50):
         # Metric to monitor
         self.logger = logger
         self.metric_monitor = metric_monitor
         self.precision = precision
         self.log_every_n_steps = log_every_n_steps
+        self.batch_log_every_n_steps = max(1, int(batch_log_every_n_steps))
         self._epoch_start_time = None
+        self._train_start_time = None
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule,
                        **kwargs) -> None:
-        self.logger.info("Training started")
+        self._train_start_time = time.time()
+        total_batches = getattr(trainer, "num_training_batches", "unknown")
+        self.logger.info(f"Training started | total_train_batches={total_batches}")
 
     def on_train_end(self, trainer: Trainer, pl_module: LightningModule,
                      **kwargs) -> None:
-        self.logger.info("Training done")
+        elapsed = 0.0 if self._train_start_time is None else (time.time() - self._train_start_time)
+        self.logger.info(f"Training done | total_time {elapsed:.1f}s")
 
     def on_train_epoch_start(self, trainer: Trainer, pl_module: LightningModule, **kwargs) -> None:
         self._epoch_start_time = time.time()
+        total_batches = getattr(trainer, "num_training_batches", "unknown")
+        self.logger.info(f"Epoch {trainer.current_epoch} started | train_batches={total_batches}")
+
+    def on_train_batch_end(self, trainer: Trainer, pl_module: LightningModule, outputs, batch, batch_idx, **kwargs) -> None:
+        # Frequent plain-text progress logs for non-interactive sessions.
+        step = int(getattr(trainer, "global_step", 0))
+        if step <= 0 or step % self.batch_log_every_n_steps != 0:
+            return
+
+        total_batches = getattr(trainer, "num_training_batches", None)
+        if isinstance(total_batches, int) and total_batches > 0:
+            pct = 100.0 * float(batch_idx + 1) / float(total_batches)
+            batch_progress = f"{batch_idx + 1}/{total_batches} ({pct:.1f}%)"
+        else:
+            batch_progress = f"{batch_idx + 1}/?"
+
+        elapsed = 0.0 if self._epoch_start_time is None else (time.time() - self._epoch_start_time)
+        speed = (batch_idx + 1) / elapsed if elapsed > 0 else 0.0
+        if isinstance(total_batches, int) and total_batches > 0 and speed > 0:
+            rem = max(total_batches - (batch_idx + 1), 0)
+            eta = rem / speed
+            eta_str = f"{eta:.1f}s"
+        else:
+            eta_str = "unknown"
+
+        gpu_msg = "cpu"
+        try:
+            import torch
+            if torch.cuda.is_available():
+                dev = torch.cuda.current_device()
+                mem_alloc = torch.cuda.memory_allocated(dev) / (1024 ** 2)
+                mem_res = torch.cuda.memory_reserved(dev) / (1024 ** 2)
+                gpu_msg = f"cuda:{dev} mem_alloc={mem_alloc:.0f}MB mem_reserved={mem_res:.0f}MB"
+        except Exception:
+            pass
+
+        self.logger.info(
+            f"Train progress | epoch={trainer.current_epoch} | step={step} | batch={batch_progress} | "
+            f"speed={speed:.2f} batch/s | epoch_elapsed={elapsed:.1f}s | eta={eta_str} | {gpu_msg}"
+        )
 
     def on_validation_epoch_end(self, trainer: Trainer,
                                 pl_module: LightningModule, **kwargs) -> None:

@@ -2,6 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 import tarfile
+import time
 import zipfile
 
 
@@ -36,6 +37,10 @@ def _all_present(paths):
     return all(p.exists() for p in paths)
 
 
+def _missing_paths(paths):
+    return [p for p in paths if not p.exists()]
+
+
 def _resolve_data_root(cfg):
     if os.environ.get("SOKE_DATA_ROOT"):
         return Path(os.environ["SOKE_DATA_ROOT"]).expanduser().resolve()
@@ -50,32 +55,38 @@ def _run(cmd, cwd=None, check=True):
 
 
 def _extract_archive(archive_path: Path, target_root: Path):
+    start = time.time()
     _log(f"extracting archive: {archive_path.name}")
     if archive_path.suffix == ".zip":
         with zipfile.ZipFile(archive_path, "r") as zf:
             zf.extractall(target_root)
+        _log(f"extracted archive: {archive_path.name} in {time.time() - start:.1f}s")
         return
 
     # tar, tar.gz, tgz
     with tarfile.open(archive_path, "r:*") as tf:
         tf.extractall(target_root)
+    _log(f"extracted archive: {archive_path.name} in {time.time() - start:.1f}s")
 
 
 def _extract_known_archives_if_present(data_root: Path):
     # Archive-first mode: upload a few big files instead of millions of tiny files.
-    archive_names = [
-        "How2Sign.tar.gz",
-        "CSL-Daily.tar.gz",
-        "Phoenix_2014T.tar.gz",
-        "How2Sign.zip",
-        "CSL-Daily.zip",
-        "Phoenix_2014T.zip",
+    archive_specs = [
+        ("How2Sign.tar.gz", data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
+        ("CSL-Daily.tar.gz", data_root / "CSL-Daily" / "csl_clean.train"),
+        ("Phoenix_2014T.tar.gz", data_root / "Phoenix_2014T" / "phoenix14t.train"),
+        ("How2Sign.zip", data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
+        ("CSL-Daily.zip", data_root / "CSL-Daily" / "csl_clean.train"),
+        ("Phoenix_2014T.zip", data_root / "Phoenix_2014T" / "phoenix14t.train"),
     ]
     found = False
-    for name in archive_names:
+    for name, marker in archive_specs:
         archive_path = data_root / name
         if archive_path.exists():
             found = True
+            if marker.exists():
+                _log(f"skip extract {archive_path.name} (already present: {marker})")
+                continue
             _extract_archive(archive_path, data_root)
     if found:
         _log("archive extraction completed")
@@ -106,7 +117,13 @@ def _sync_with_hf_hub(repo_id: str, data_root: Path) -> bool:
 def ensure_dataset_available(cfg):
     req = _required_paths(cfg)
     if _all_present(req):
+        _log("dataset already present; skip HF sync")
         return
+
+    missing_before = _missing_paths(req)
+    _log(f"required files missing before sync: {len(missing_before)}")
+    for p in missing_before[:5]:
+        _log(f"missing: {p}")
 
     repo_id = os.environ.get("SOKE_HF_DATASET_REPO", "").strip()
     if not repo_id:

@@ -29,6 +29,20 @@ def main():
     logger = create_logger(cfg, phase="train")  # create logger
     logger.info(OmegaConf.to_yaml(cfg))  # print config file
 
+    logger.info(
+        "Runtime GPU check | torch.cuda.is_available=%s | torch=%s | cuda_runtime=%s",
+        torch.cuda.is_available(),
+        torch.__version__,
+        torch.version.cuda,
+    )
+    if torch.cuda.is_available():
+        try:
+            dev_count = torch.cuda.device_count()
+            names = [torch.cuda.get_device_name(i) for i in range(dev_count)]
+            logger.info("Visible CUDA devices: %s", names)
+        except Exception as e:
+            logger.warning("Failed to query CUDA device names: %s", e)
+
     if cfg.ACCELERATOR == "gpu" and not torch.cuda.is_available():
         logger.warning("CUDA not available. Falling back to CPU.")
         cfg.ACCELERATOR = "cpu"
@@ -65,6 +79,15 @@ def main():
     datamodule = build_data(cfg)
     logger.info("datasets module {} initialized".format("".join(
         cfg.DATASET.target.split('.')[-2])))
+    try:
+        logger.info(
+            "Dataset sizes | train=%s | val=%s | test=%s",
+            len(datamodule.train_dataset),
+            len(datamodule.val_dataset),
+            len(datamodule.test_dataset),
+        )
+    except Exception as e:
+        logger.warning("Unable to log dataset sizes: %s", e)
     if len(datamodule.train_dataset) == 0:
         raise RuntimeError(
             "No training samples found. Populate pose directories under "
@@ -94,6 +117,13 @@ def main():
         # num_sanity_val_steps=0,  #for debug
     )
     logger.info("Trainer initialized")
+    logger.info(
+        "Trainer setup | accelerator=%s | devices=%s | num_nodes=%s | strategy=%s",
+        cfg.ACCELERATOR,
+        cfg.DEVICE,
+        cfg.NUM_NODES,
+        "ddp_find_unused_parameters_true" if isinstance(cfg.DEVICE, (list, tuple)) and len(cfg.DEVICE) > 1 else "auto",
+    )
 
     # Strict load pretrianed model
     if cfg.TRAIN.PRETRAINED:
