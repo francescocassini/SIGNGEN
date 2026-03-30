@@ -21,9 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git lfs install
 
 COPY requirements.txt /tmp/requirements.txt
-RUN python -m pip install --upgrade pip setuptools wheel && \
-    grep -v '^bpy==' /tmp/requirements.txt > /tmp/requirements.docker.txt && \
+RUN grep -v -E '^(bpy==|chumpy$)' /tmp/requirements.txt > /tmp/requirements.docker.txt && \
     python -m pip install -r /tmp/requirements.docker.txt && \
+    python -m pip install --no-build-isolation chumpy && \
     python -m pip install huggingface_hub hf-transfer
 
 COPY . /workspace/SOKE
