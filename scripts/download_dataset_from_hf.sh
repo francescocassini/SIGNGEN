@@ -41,18 +41,21 @@ snapshot_download(
 )
 
 root = Path(target_dir)
-archive_names = [
-    "How2Sign.tar.gz",
-    "CSL-Daily.tar.gz",
-    "Phoenix_2014T.tar.gz",
-    "How2Sign.zip",
-    "CSL-Daily.zip",
-    "Phoenix_2014T.zip",
+archive_specs = [
+    ("How2Sign.tar.gz", root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
+    ("CSL-Daily.tar.gz", root / "CSL-Daily" / "csl_clean.train"),
+    ("Phoenix_2014T.tar.gz", root / "Phoenix_2014T" / "phoenix14t.train"),
+    ("How2Sign.zip", root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
+    ("CSL-Daily.zip", root / "CSL-Daily" / "csl_clean.train"),
+    ("Phoenix_2014T.zip", root / "Phoenix_2014T" / "phoenix14t.train"),
 ]
 
-for name in archive_names:
+for name, marker in archive_specs:
     p = root / name
     if not p.exists():
+        continue
+    if marker.exists():
+        print(f"[INFO] Skipping extract for {p.name} (already present: {marker})")
         continue
     print(f"[INFO] Extracting {p.name} ...")
     if p.suffix == ".zip":
