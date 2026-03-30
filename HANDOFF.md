@@ -257,6 +257,7 @@ bash scripts/run_inference_complete.sh all
 1. **Obiettivo 2 (Docker e2e):** eseguire `docker compose run --rm soke train` su ambiente GPU e verificare bootstrap dataset da HF + start training.
 2. **Obiettivo 3 (every 50 epochs):** implementare callback periodica inferenza subset test e pipeline GIF GT vs Pred.
 3. **Obiettivo 4 (logging avanzato):** integrare telemetria GPU (util/mem/temp/power) nel log di training e report rank-aware in multi-GPU.
+4. Usare `DOCKER_PARITY_MAP.md` come runbook unico per equivalenza locale vs Docker (train, monitor, inferenza, GIF).
 
 ### Nota sicurezza operativa
 - Evitare di incollare token HF in log/chat/versioning.

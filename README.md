@@ -20,6 +20,7 @@ pip install -r requirements.txt
 For a practical setup with dataset outside the code repo (including private Hugging Face dataset repo), see:
 - `DATASET_PRIVATE_HF.md`
 - `DOCKER.md` (containerized train/inference with private HF dataset bootstrap)
+- `DOCKER_PARITY_MAP.md` (local commands mapped 1:1 to Docker runbook)
 
 ### Continuous Sign Language Datasets
 How2Sign: [raw videos](https://how2sign.github.io/)(Green Screen RGB clips (frontal view)) and [split files](https://drive.google.com/drive/folders/1sPhBwmiWCXLZSHtM3fpotbz3BDgoYmco?usp=sharing).
