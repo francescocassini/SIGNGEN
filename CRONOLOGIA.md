@@ -156,6 +156,7 @@
 ## 2026-03-30 (sera) - Hotfix Docker train
 
 - Pinned `transformers==4.41.2` in `requirements.txt` (compat con `torch 2.3.1` della Docker image).
+- Aggiunto `sentencepiece>=0.1.99` in `requirements.txt` (richiesto da `MBartTokenizer`).
 - Risolto problema split file mancanti in Docker causato da symlink assoluti:
   - `mGPT/utils/dataset_autodownload.py` ora ripara automaticamente i file split copiandoli da `data/splits/`.
   - `scripts/download_dataset_from_hf.sh` fa la stessa riparazione post download/extract.

@@ -271,6 +271,7 @@ bash scripts/run_inference_complete.sh all
 ### Fix applicati
 - `requirements.txt`
   - `transformers==4.41.2` (pin compatibile con stack torch Docker attuale).
+  - `sentencepiece>=0.1.99` (necessario per `MBartTokenizer`).
 - `mGPT/utils/dataset_autodownload.py`
   - aggiunta riparazione automatica split files da `data/splits/*` del repo quando mancanti/roken symlink.
   - riparazione eseguita sia prima del sync HF che dopo l'estrazione archivi.
