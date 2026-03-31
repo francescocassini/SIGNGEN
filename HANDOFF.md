@@ -284,6 +284,7 @@ bash scripts/run_inference_complete.sh all
 - train in Docker non dovrebbe piu' fermarsi su `GenerationMixin`,
 - dataset check non dovrebbe piu' fallire per symlink spezzati,
 - i prossimi archivi HF saranno robusti anche su host/container diversi.
+- container ora eseguito con UID/GID host (`docker-compose.yml`) per evitare file root bloccati in `SOKE_DATA`.
 
 ### Nota sicurezza operativa
 - Evitare di incollare token HF in log/chat/versioning.

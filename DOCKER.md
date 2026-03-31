@@ -6,6 +6,7 @@
 cd /home/cirillo/Desktop/SIGNGEN/SOKE
 cp .env.example .env
 # Edit .env and set HF_TOKEN
+# Set LOCAL_UID/LOCAL_GID to host values (usually 1000:1000)
 ```
 
 ## 2) Build image

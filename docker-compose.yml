@@ -13,10 +13,12 @@ services:
       - SOKE_DATA_ROOT=/workspace/SOKE_DATA
       - PYTHONPATH=/workspace/SOKE
       - HF_HUB_ENABLE_HF_TRANSFER=1
+      - HF_HOME=/workspace/.cache/huggingface
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     volumes:
       - ./:/workspace/SOKE
       - ${SOKE_DATA_ROOT_HOST:-/home/cirillo/Desktop/SOKE_DATA}:/workspace/SOKE_DATA
-      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+      - ${HOME}/.cache/huggingface:/workspace/.cache/huggingface
     gpus: all
     stdin_open: true
     tty: true

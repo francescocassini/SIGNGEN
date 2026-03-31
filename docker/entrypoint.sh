@@ -2,6 +2,8 @@
 set -euo pipefail
 
 cd /workspace/SOKE
+umask "${SOKE_UMASK:-0002}"
+echo "[docker-entrypoint] running as uid=$(id -u) gid=$(id -g) umask=$(umask)"
 
 export SOKE_DATA_ROOT="${SOKE_DATA_ROOT:-/workspace/SOKE_DATA}"
 export SOKE_H2S_ROOT="${SOKE_H2S_ROOT:-$SOKE_DATA_ROOT/How2Sign}"
