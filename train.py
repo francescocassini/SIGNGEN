@@ -90,8 +90,10 @@ def main():
         logger.warning("Unable to log dataset sizes: %s", e)
     if len(datamodule.train_dataset) == 0:
         raise RuntimeError(
-            "No training samples found. Populate pose directories under "
-            "../data/How2Sign, ../data/CSL-Daily/poses, ../data/Phoenix_2014T."
+            "No training samples found. Required for lm_pretrain: "
+            "pose dirs under How2Sign/train/poses, CSL-Daily/poses, Phoenix_2014T/<utterance_dirs> "
+            "and token codes under How2Sign/TOKENS_h2s_csl_phoenix/{how2sign,csl,phoenix}. "
+            "Generate codes with: `python -m get_motion_code --cfg configs/soke.yaml --nodebug`."
         )
 
     # Model

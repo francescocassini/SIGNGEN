@@ -137,71 +137,82 @@ def _extract_archive(archive_path: Path, target_root: Path):
     _log(f"extracted archive: {archive_path.name} in {time.time() - start:.1f}s")
 
 
+def _ensure_csl_poses_alias(data_root: Path):
+    csl_root = data_root / "CSL-Daily"
+    poses = csl_root / "poses"
+    legacy = csl_root / "csl-daily_pose"
+    if poses.exists():
+        return False
+    if not legacy.exists():
+        return False
+    try:
+        poses.symlink_to(legacy.name)
+        _log("created alias: CSL-Daily/poses -> csl-daily_pose")
+    except Exception:
+        # Symlink can fail on restricted filesystems; fallback to copy is too expensive.
+        return False
+    return True
+
+
+def _archive_markers(data_root: Path, archive_name: str):
+    if archive_name == "How2Sign.tar.gz" or archive_name == "How2Sign.zip":
+        return [
+            data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+            data_root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+            data_root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+            data_root / "How2Sign" / "train" / "poses",
+            data_root / "How2Sign" / "val" / "poses",
+            data_root / "How2Sign" / "test" / "poses",
+        ]
+    if archive_name == "CSL-Daily.tar.gz" or archive_name == "CSL-Daily.zip":
+        # Accept both canonical and legacy pose folder names.
+        has_pose_root = (data_root / "CSL-Daily" / "poses").exists() or (data_root / "CSL-Daily" / "csl-daily_pose").exists()
+        return [
+            data_root / "CSL-Daily" / "csl_clean.train",
+            data_root / "CSL-Daily" / "csl_clean.val",
+            data_root / "CSL-Daily" / "csl_clean.test",
+            data_root / "CSL-Daily" / "mean.pt",
+            data_root / "CSL-Daily" / "std.pt",
+            Path("/__virtual_exists__") if has_pose_root else Path("/__virtual_missing__"),
+        ]
+    if archive_name == "Phoenix_2014T.tar.gz" or archive_name == "Phoenix_2014T.zip":
+        has_pose_root = any(
+            (data_root / "Phoenix_2014T" / p).exists() for p in ("train", "dev", "test")
+        )
+        return [
+            data_root / "Phoenix_2014T" / "phoenix14t.train",
+            data_root / "Phoenix_2014T" / "phoenix14t.dev",
+            data_root / "Phoenix_2014T" / "phoenix14t.test",
+            Path("/__virtual_exists__") if has_pose_root else Path("/__virtual_missing__"),
+        ]
+    return []
+
+
+def _archive_already_extracted(data_root: Path, archive_name: str):
+    markers = _archive_markers(data_root, archive_name)
+    return len(markers) > 0 and all(m.exists() for m in markers)
+
+
 def _extract_known_archives_if_present(data_root: Path):
     # Archive-first mode: upload a few big files instead of millions of tiny files.
-    archive_specs = [
-        (
-            "How2Sign.tar.gz",
-            [
-                data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
-                data_root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
-                data_root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
-            ],
-        ),
-        (
-            "CSL-Daily.tar.gz",
-            [
-                data_root / "CSL-Daily" / "csl_clean.train",
-                data_root / "CSL-Daily" / "csl_clean.val",
-                data_root / "CSL-Daily" / "csl_clean.test",
-                data_root / "CSL-Daily" / "mean.pt",
-                data_root / "CSL-Daily" / "std.pt",
-            ],
-        ),
-        (
-            "Phoenix_2014T.tar.gz",
-            [
-                data_root / "Phoenix_2014T" / "phoenix14t.train",
-                data_root / "Phoenix_2014T" / "phoenix14t.dev",
-                data_root / "Phoenix_2014T" / "phoenix14t.test",
-            ],
-        ),
-        (
-            "How2Sign.zip",
-            [
-                data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
-                data_root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
-                data_root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
-            ],
-        ),
-        (
-            "CSL-Daily.zip",
-            [
-                data_root / "CSL-Daily" / "csl_clean.train",
-                data_root / "CSL-Daily" / "csl_clean.val",
-                data_root / "CSL-Daily" / "csl_clean.test",
-                data_root / "CSL-Daily" / "mean.pt",
-                data_root / "CSL-Daily" / "std.pt",
-            ],
-        ),
-        (
-            "Phoenix_2014T.zip",
-            [
-                data_root / "Phoenix_2014T" / "phoenix14t.train",
-                data_root / "Phoenix_2014T" / "phoenix14t.dev",
-                data_root / "Phoenix_2014T" / "phoenix14t.test",
-            ],
-        ),
+    archive_names = [
+        "How2Sign.tar.gz",
+        "CSL-Daily.tar.gz",
+        "Phoenix_2014T.tar.gz",
+        "How2Sign.zip",
+        "CSL-Daily.zip",
+        "Phoenix_2014T.zip",
     ]
     found = False
-    for name, markers in archive_specs:
+    for name in archive_names:
         archive_path = data_root / name
         if archive_path.exists():
             found = True
-            if all(m.exists() for m in markers):
+            if _archive_already_extracted(data_root, name):
                 _log(f"skip extract {archive_path.name} (all markers already present)")
                 continue
             _extract_archive(archive_path, data_root)
+            _ensure_csl_poses_alias(data_root)
     if found:
         _log("archive extraction completed")
 

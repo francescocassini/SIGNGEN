@@ -44,66 +44,63 @@ snapshot_download(
 )
 
 root = Path(target_dir)
-archive_specs = [
-    (
-        "How2Sign.tar.gz",
-        [
+def ensure_csl_poses_alias():
+    csl_root = root / "CSL-Daily"
+    poses = csl_root / "poses"
+    legacy = csl_root / "csl-daily_pose"
+    if poses.exists() or not legacy.exists():
+        return
+    try:
+        poses.symlink_to(legacy.name)
+        print("[INFO] created alias: CSL-Daily/poses -> csl-daily_pose")
+    except Exception:
+        pass
+
+def archive_markers(name: str):
+    if name in ("How2Sign.tar.gz", "How2Sign.zip"):
+        return [
             root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
             root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
             root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
-        ],
-    ),
-    (
-        "CSL-Daily.tar.gz",
-        [
+            root / "How2Sign" / "train" / "poses",
+            root / "How2Sign" / "val" / "poses",
+            root / "How2Sign" / "test" / "poses",
+        ]
+    if name in ("CSL-Daily.tar.gz", "CSL-Daily.zip"):
+        has_pose_root = (root / "CSL-Daily" / "poses").exists() or (root / "CSL-Daily" / "csl-daily_pose").exists()
+        return [
             root / "CSL-Daily" / "csl_clean.train",
             root / "CSL-Daily" / "csl_clean.val",
             root / "CSL-Daily" / "csl_clean.test",
             root / "CSL-Daily" / "mean.pt",
             root / "CSL-Daily" / "std.pt",
-        ],
-    ),
-    (
-        "Phoenix_2014T.tar.gz",
-        [
+            Path("/__virtual_exists__") if has_pose_root else Path("/__virtual_missing__"),
+        ]
+    if name in ("Phoenix_2014T.tar.gz", "Phoenix_2014T.zip"):
+        has_pose_root = any((root / "Phoenix_2014T" / p).exists() for p in ("train", "dev", "test"))
+        return [
             root / "Phoenix_2014T" / "phoenix14t.train",
             root / "Phoenix_2014T" / "phoenix14t.dev",
             root / "Phoenix_2014T" / "phoenix14t.test",
-        ],
-    ),
-    (
-        "How2Sign.zip",
-        [
-            root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
-            root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
-            root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
-        ],
-    ),
-    (
-        "CSL-Daily.zip",
-        [
-            root / "CSL-Daily" / "csl_clean.train",
-            root / "CSL-Daily" / "csl_clean.val",
-            root / "CSL-Daily" / "csl_clean.test",
-            root / "CSL-Daily" / "mean.pt",
-            root / "CSL-Daily" / "std.pt",
-        ],
-    ),
-    (
-        "Phoenix_2014T.zip",
-        [
-            root / "Phoenix_2014T" / "phoenix14t.train",
-            root / "Phoenix_2014T" / "phoenix14t.dev",
-            root / "Phoenix_2014T" / "phoenix14t.test",
-        ],
-    ),
+            Path("/__virtual_exists__") if has_pose_root else Path("/__virtual_missing__"),
+        ]
+    return []
+
+archive_names = [
+    "How2Sign.tar.gz",
+    "CSL-Daily.tar.gz",
+    "Phoenix_2014T.tar.gz",
+    "How2Sign.zip",
+    "CSL-Daily.zip",
+    "Phoenix_2014T.zip",
 ]
 
-for name, markers in archive_specs:
+for name in archive_names:
     p = root / name
     if not p.exists():
         continue
-    if all(m.exists() for m in markers):
+    markers = archive_markers(name)
+    if markers and all(m.exists() for m in markers):
         print(f"[INFO] Skipping extract for {p.name} (all markers already present)")
         continue
     print(f"[INFO] Extracting {p.name} ...")
@@ -113,6 +110,7 @@ for name, markers in archive_specs:
     else:
         with tarfile.open(p, "r:*") as tf:
             tf.extractall(root)
+    ensure_csl_poses_alias()
 
 mapping = [
     (
