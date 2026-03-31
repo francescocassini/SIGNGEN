@@ -45,20 +45,66 @@ snapshot_download(
 
 root = Path(target_dir)
 archive_specs = [
-    ("How2Sign.tar.gz", root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
-    ("CSL-Daily.tar.gz", root / "CSL-Daily" / "csl_clean.train"),
-    ("Phoenix_2014T.tar.gz", root / "Phoenix_2014T" / "phoenix14t.train"),
-    ("How2Sign.zip", root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
-    ("CSL-Daily.zip", root / "CSL-Daily" / "csl_clean.train"),
-    ("Phoenix_2014T.zip", root / "Phoenix_2014T" / "phoenix14t.train"),
+    (
+        "How2Sign.tar.gz",
+        [
+            root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+            root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+            root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+        ],
+    ),
+    (
+        "CSL-Daily.tar.gz",
+        [
+            root / "CSL-Daily" / "csl_clean.train",
+            root / "CSL-Daily" / "csl_clean.val",
+            root / "CSL-Daily" / "csl_clean.test",
+            root / "CSL-Daily" / "mean.pt",
+            root / "CSL-Daily" / "std.pt",
+        ],
+    ),
+    (
+        "Phoenix_2014T.tar.gz",
+        [
+            root / "Phoenix_2014T" / "phoenix14t.train",
+            root / "Phoenix_2014T" / "phoenix14t.dev",
+            root / "Phoenix_2014T" / "phoenix14t.test",
+        ],
+    ),
+    (
+        "How2Sign.zip",
+        [
+            root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+            root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+            root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+        ],
+    ),
+    (
+        "CSL-Daily.zip",
+        [
+            root / "CSL-Daily" / "csl_clean.train",
+            root / "CSL-Daily" / "csl_clean.val",
+            root / "CSL-Daily" / "csl_clean.test",
+            root / "CSL-Daily" / "mean.pt",
+            root / "CSL-Daily" / "std.pt",
+        ],
+    ),
+    (
+        "Phoenix_2014T.zip",
+        [
+            root / "Phoenix_2014T" / "phoenix14t.train",
+            root / "Phoenix_2014T" / "phoenix14t.dev",
+            root / "Phoenix_2014T" / "phoenix14t.test",
+        ],
+    ),
 ]
 
-for name, marker in archive_specs:
+for name, markers in archive_specs:
     p = root / name
     if not p.exists():
         continue
-    if marker.exists():
-        print(f"[INFO] Skipping extract for {p.name} (already present: {marker})")
+    if all(m.exists() for m in markers):
+        print(f"[INFO] Skipping extract for {p.name} (all markers already present)")
         continue
     print(f"[INFO] Extracting {p.name} ...")
     if p.suffix == ".zip":

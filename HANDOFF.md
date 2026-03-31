@@ -296,6 +296,7 @@ bash scripts/run_inference_complete.sh all
 - Docker training avviabile end-to-end con GPU.
 - Download dataset da HF privata funzionante (snapshot + extract).
 - Dopo reset completo `SOKE_DATA`, il bootstrap ricrea i dati correttamente.
+- Fix aggiuntivo 2026-03-31: estrazione archivi non viene piu' saltata se mancano `CSL-Daily/mean.pt` e `CSL-Daily/std.pt`.
 
 ### Hardening permessi (anti-file bloccati)
 - `docker-compose.yml` esegue il container con user host:
@@ -308,6 +309,16 @@ bash scripts/run_inference_complete.sh all
   - log esplicito uid/gid/umask all'avvio.
 
 Impatto: i file scritti in `SOKE_DATA` devono risultare cancellabili dall'utente host senza root.
+
+### Hardening runtime cache/temp
+- In `docker-compose.yml` aggiunte env:
+  - `HOME=/workspace/SOKE`
+  - `TMPDIR=/tmp`
+  - `XDG_CONFIG_HOME=/tmp/.config`
+  - `MPLCONFIGDIR=/tmp/matplotlib`
+- In `docker/entrypoint.sh` creazione preventiva directory cache/temp/config.
+
+Impatto: ridotti warning su matplotlib (`/.config`) e su file temporanei HF (`/workspace/tmp_*`).
 
 ### Setup `.env` standard (replicabile per altri utenti)
 - Script ufficiale:

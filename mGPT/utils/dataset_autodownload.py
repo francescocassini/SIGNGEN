@@ -140,20 +140,66 @@ def _extract_archive(archive_path: Path, target_root: Path):
 def _extract_known_archives_if_present(data_root: Path):
     # Archive-first mode: upload a few big files instead of millions of tiny files.
     archive_specs = [
-        ("How2Sign.tar.gz", data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
-        ("CSL-Daily.tar.gz", data_root / "CSL-Daily" / "csl_clean.train"),
-        ("Phoenix_2014T.tar.gz", data_root / "Phoenix_2014T" / "phoenix14t.train"),
-        ("How2Sign.zip", data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv"),
-        ("CSL-Daily.zip", data_root / "CSL-Daily" / "csl_clean.train"),
-        ("Phoenix_2014T.zip", data_root / "Phoenix_2014T" / "phoenix14t.train"),
+        (
+            "How2Sign.tar.gz",
+            [
+                data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+                data_root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+                data_root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+            ],
+        ),
+        (
+            "CSL-Daily.tar.gz",
+            [
+                data_root / "CSL-Daily" / "csl_clean.train",
+                data_root / "CSL-Daily" / "csl_clean.val",
+                data_root / "CSL-Daily" / "csl_clean.test",
+                data_root / "CSL-Daily" / "mean.pt",
+                data_root / "CSL-Daily" / "std.pt",
+            ],
+        ),
+        (
+            "Phoenix_2014T.tar.gz",
+            [
+                data_root / "Phoenix_2014T" / "phoenix14t.train",
+                data_root / "Phoenix_2014T" / "phoenix14t.dev",
+                data_root / "Phoenix_2014T" / "phoenix14t.test",
+            ],
+        ),
+        (
+            "How2Sign.zip",
+            [
+                data_root / "How2Sign" / "train" / "re_aligned" / "how2sign_realigned_train_preprocessed_fps.csv",
+                data_root / "How2Sign" / "val" / "re_aligned" / "how2sign_realigned_val_preprocessed_fps.csv",
+                data_root / "How2Sign" / "test" / "re_aligned" / "how2sign_realigned_test_preprocessed_fps.csv",
+            ],
+        ),
+        (
+            "CSL-Daily.zip",
+            [
+                data_root / "CSL-Daily" / "csl_clean.train",
+                data_root / "CSL-Daily" / "csl_clean.val",
+                data_root / "CSL-Daily" / "csl_clean.test",
+                data_root / "CSL-Daily" / "mean.pt",
+                data_root / "CSL-Daily" / "std.pt",
+            ],
+        ),
+        (
+            "Phoenix_2014T.zip",
+            [
+                data_root / "Phoenix_2014T" / "phoenix14t.train",
+                data_root / "Phoenix_2014T" / "phoenix14t.dev",
+                data_root / "Phoenix_2014T" / "phoenix14t.test",
+            ],
+        ),
     ]
     found = False
-    for name, marker in archive_specs:
+    for name, markers in archive_specs:
         archive_path = data_root / name
         if archive_path.exists():
             found = True
-            if marker.exists():
-                _log(f"skip extract {archive_path.name} (already present: {marker})")
+            if all(m.exists() for m in markers):
+                _log(f"skip extract {archive_path.name} (all markers already present)")
                 continue
             _extract_archive(archive_path, data_root)
     if found:

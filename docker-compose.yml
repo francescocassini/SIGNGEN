@@ -13,6 +13,10 @@ services:
       - SOKE_DATA_ROOT=/workspace/SOKE_DATA
       - PYTHONPATH=/workspace/SOKE
       - HF_HUB_ENABLE_HF_TRANSFER=1
+      - HOME=/workspace/SOKE
+      - TMPDIR=/tmp
+      - XDG_CONFIG_HOME=/tmp/.config
+      - MPLCONFIGDIR=/tmp/matplotlib
       - HF_HOME=/workspace/.cache/huggingface
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     volumes:
