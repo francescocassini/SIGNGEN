@@ -15,11 +15,24 @@ export SOKE_CSL_MEAN_PATH="${SOKE_CSL_MEAN_PATH:-$SOKE_CSL_ROOT/mean.pt}"
 export SOKE_CSL_STD_PATH="${SOKE_CSL_STD_PATH:-$SOKE_CSL_ROOT/std.pt}"
 
 AUTO_DOWNLOAD="${SOKE_AUTO_DOWNLOAD_DATASET:-1}"
-if [[ "$AUTO_DOWNLOAD" == "1" ]] && [[ -n "${SOKE_HF_DATASET_REPO:-}" ]]; then
-  echo "[docker-entrypoint] dataset sync from HF repo: ${SOKE_HF_DATASET_REPO}"
-  /workspace/SOKE/scripts/download_dataset_from_hf.sh "${SOKE_HF_DATASET_REPO}" "${SOKE_DATA_ROOT}"
+AUTO_DOWNLOAD_LC="$(echo "$AUTO_DOWNLOAD" | tr '[:upper:]' '[:lower:]')"
+REPO_ID="${SOKE_HF_DATASET_REPO:-}"
+REPO_ID_TRIMMED="$(echo "$REPO_ID" | xargs || true)"
+
+is_true=0
+case "$AUTO_DOWNLOAD_LC" in
+  1|true|yes|on) is_true=1 ;;
+esac
+
+if [[ "$is_true" == "1" ]] && [[ -n "$REPO_ID_TRIMMED" ]]; then
+  echo "[docker-entrypoint] dataset sync from HF repo: ${REPO_ID_TRIMMED}"
+  /workspace/SOKE/scripts/download_dataset_from_hf.sh "${REPO_ID_TRIMMED}" "${SOKE_DATA_ROOT}"
 else
-  echo "[docker-entrypoint] dataset auto-download skipped"
+  if [[ "$is_true" != "1" ]]; then
+    echo "[docker-entrypoint] dataset auto-download skipped (SOKE_AUTO_DOWNLOAD_DATASET=${AUTO_DOWNLOAD})"
+  else
+    echo "[docker-entrypoint] dataset auto-download skipped (SOKE_HF_DATASET_REPO not set)"
+  fi
 fi
 
 MODE="${1:-train}"

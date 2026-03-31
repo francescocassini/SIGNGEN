@@ -369,3 +369,37 @@ watch -n 1 "nvidia-smi --query-gpu=timestamp,utilization.gpu,utilization.memory,
 ### Nota shell locale (Conda)
 - In alcuni terminali con env Conda custom, comandi mancanti possono scatenare errore `command-not-found` (librerie `apt_pkg`/`GLIBCXX`).
 - Evitare dipendenze non necessarie nei comandi operativi (es. usare filtri Docker nativi invece di pipeline con tool non presenti).
+
+## 16) Aggiornamento operativo (2026-03-31, follow-up finale Docker)
+### Esito sessione
+- Verifica utente positiva: il flusso Docker (download dataset + bootstrap + run) risulta funzionante in pratica.
+- Osservato comportamento cache HF coerente con `snapshot_download` (riuso cache locale quando presente).
+
+### Allineamento log bootstrap Docker
+- `docker/entrypoint.sh` aggiornato per evitare log fuorvianti:
+  - `SOKE_AUTO_DOWNLOAD_DATASET` ora accetta anche `true/yes/on` (oltre a `1`).
+  - messaggio di skip esplicita il motivo:
+    - variabile auto-download disabilitata, oppure
+    - `SOKE_HF_DATASET_REPO` non impostata.
+- Impatto: diagnosi piu' chiara in fase di reset/riavvio da zero.
+
+## 17) Prossima fase (obiettivi generici)
+### O1 - Logging training strutturato
+- Definire uno standard unico per log runtime/training (console + file + CSV/JSON).
+- Tracciare stato run, loss/metriche principali, tempi epoca/step, resume info.
+- Garantire leggibilita' sia locale sia Docker/multi-sessione.
+
+### O2 - Gestione pesi/checkpoint
+- Definire policy checkpoint (best/last, retention, naming, cleanup).
+- Salvare metadati minimi per ripristino rapido (config, commit, seed, epoca).
+- Preparare esportazione/artifact packaging dei pesi per deploy o condivisione.
+
+### O3 - Notifiche Telegram durante training
+- Inviare aggiornamenti periodici stato training (start, heartbeat, end/fail).
+- Inviare eventi chiave (nuovo best checkpoint, errore run, stop inatteso).
+- Allegare nel messaggio un riepilogo sintetico (loss/metriche/GPU/ETA) e link/path artefatti.
+
+### Criterio di completamento fase
+1. Pipeline logging + checkpoint + notifiche attivabile da config/env senza edit manuali codice.
+2. Testata almeno una run completa con notifiche Telegram ricevute correttamente.
+3. Documentazione operativa corta (setup token/chat_id + esempi comandi + troubleshooting).
