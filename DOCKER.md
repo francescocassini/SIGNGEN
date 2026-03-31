@@ -4,9 +4,15 @@
 
 ```bash
 cd /home/cirillo/Desktop/SIGNGEN/SOKE
+scripts/init_docker_env.sh
+# then edit .env and set HF_TOKEN
+```
+
+Alternative manual setup is still valid:
+
+```bash
 cp .env.example .env
-# Edit .env and set HF_TOKEN
-# Set LOCAL_UID/LOCAL_GID to host values (usually 1000:1000)
+# Edit .env and set HF_TOKEN + LOCAL_UID + LOCAL_GID
 ```
 
 ## 2) Build image

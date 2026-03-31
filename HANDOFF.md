@@ -285,6 +285,7 @@ bash scripts/run_inference_complete.sh all
 - dataset check non dovrebbe piu' fallire per symlink spezzati,
 - i prossimi archivi HF saranno robusti anche su host/container diversi.
 - container ora eseguito con UID/GID host (`docker-compose.yml`) per evitare file root bloccati in `SOKE_DATA`.
+- nuovo helper `scripts/init_docker_env.sh` per generare `.env` con `LOCAL_UID/LOCAL_GID` automatici (setup replicabile per altri utenti).
 
 ### Nota sicurezza operativa
 - Evitare di incollare token HF in log/chat/versioning.
