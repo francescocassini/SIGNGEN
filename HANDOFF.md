@@ -1,6 +1,6 @@
 # HANDOFF - SOKE (Signs as Tokens)
 
-Ultimo aggiornamento: 2026-03-30 (Europe/Rome)
+Ultimo aggiornamento: 2026-03-31 (Europe/Rome)
 
 ## 1) Obiettivo del progetto
 Portare la pipeline SOKE in stato **end-to-end funzionante** (train/inferenza/valutazione/visualizzazione), con priorita' immediata su:
@@ -290,3 +290,71 @@ bash scripts/run_inference_complete.sh all
 ### Nota sicurezza operativa
 - Evitare di incollare token HF in log/chat/versioning.
 - Se un token e' stato esposto, rigenerarlo immediatamente dal pannello Hugging Face.
+
+## 15) Stato operativo finale (2026-03-31)
+### Esito attuale
+- Docker training avviabile end-to-end con GPU.
+- Download dataset da HF privata funzionante (snapshot + extract).
+- Dopo reset completo `SOKE_DATA`, il bootstrap ricrea i dati correttamente.
+
+### Hardening permessi (anti-file bloccati)
+- `docker-compose.yml` esegue il container con user host:
+  - `user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"`
+- Cache HF container su mount utente:
+  - `HF_HOME=/workspace/.cache/huggingface`
+  - bind su `${HOME}/.cache/huggingface:/workspace/.cache/huggingface`
+- `docker/entrypoint.sh` imposta:
+  - `umask ${SOKE_UMASK:-0002}`
+  - log esplicito uid/gid/umask all'avvio.
+
+Impatto: i file scritti in `SOKE_DATA` devono risultare cancellabili dall'utente host senza root.
+
+### Setup `.env` standard (replicabile per altri utenti)
+- Script ufficiale:
+  - `scripts/init_docker_env.sh`
+- Genera `.env` con:
+  - `SOKE_HF_DATASET_REPO`
+  - `HF_TOKEN` placeholder (da compilare manualmente)
+  - `SOKE_DATA_ROOT_HOST`
+  - `SOKE_AUTO_DOWNLOAD_DATASET`
+  - `SOKE_TRAIN_CFG` / `SOKE_TEST_CFG`
+  - `LOCAL_UID` / `LOCAL_GID` auto dalla macchina corrente.
+
+Nota operativa:
+- Anche chi fa pull su un altro PC deve creare il proprio `.env` locale (non versionato), preferibilmente via `scripts/init_docker_env.sh`.
+
+### Procedura ufficiale: reset dataset + train
+```bash
+cd /home/cirillo/Desktop/SIGNGEN/SOKE
+
+# stop/rm container SOKE
+docker ps -q --filter "name=soke" | xargs -r docker stop
+docker ps -aq --filter "name=soke" | xargs -r docker rm -f
+
+# hard reset dataset
+sudo chown -R "$USER:$USER" /home/cirillo/Desktop/SOKE_DATA || true
+sudo chmod -R u+rwX /home/cirillo/Desktop/SOKE_DATA || true
+sudo rm -rf /home/cirillo/Desktop/SOKE_DATA
+mkdir -p /home/cirillo/Desktop/SOKE_DATA
+chmod 775 /home/cirillo/Desktop/SOKE_DATA
+
+# env + build + train
+scripts/init_docker_env.sh
+# edit .env and set HF_TOKEN
+docker compose build --no-cache soke
+docker compose run --rm soke train
+```
+
+### Monitor training
+```bash
+CID=$(docker ps --filter "name=soke-soke-run" --format "{{.ID}}" | head -n1)
+docker logs -f "$CID"
+
+watch -n 5 'ls -lah /home/cirillo/Desktop/SIGNGEN/SOKE/experiments/mgpt/SOKE/checkpoints'
+tail -f /home/cirillo/Desktop/SIGNGEN/SOKE/experiments/mgpt/SOKE/csv_logs/metrics.csv
+watch -n 1 "nvidia-smi --query-gpu=timestamp,utilization.gpu,utilization.memory,power.draw,memory.used,temperature.gpu --format=csv,noheader"
+```
+
+### Nota shell locale (Conda)
+- In alcuni terminali con env Conda custom, comandi mancanti possono scatenare errore `command-not-found` (librerie `apt_pkg`/`GLIBCXX`).
+- Evitare dipendenze non necessarie nei comandi operativi (es. usare filtri Docker nativi invece di pipeline con tool non presenti).
