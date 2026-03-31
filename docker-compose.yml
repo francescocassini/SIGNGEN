@@ -11,6 +11,12 @@ services:
         required: false
     environment:
       - SOKE_DATA_ROOT=/workspace/SOKE_DATA
+      - SOKE_ARTIFACT_ROOT=/workspace/SOKE_ARTIFACTS
+      - SOKE_EXP_ROOT=/workspace/SOKE_ARTIFACTS/experiments
+      - SOKE_RESULTS_ROOT=/workspace/SOKE_ARTIFACTS/results
+      - SOKE_LOG_ROOT=/workspace/SOKE_ARTIFACTS/logs
+      - SOKE_GIF_ROOT=/workspace/SOKE_ARTIFACTS/gifs
+      - SOKE_RUN_STATE_ROOT=/workspace/SOKE_ARTIFACTS/run_state
       - PYTHONPATH=/workspace/SOKE
       - HF_HUB_ENABLE_HF_TRANSFER=1
       - HOME=/workspace/SOKE
@@ -22,6 +28,7 @@ services:
     volumes:
       - ./:/workspace/SOKE
       - ${SOKE_DATA_ROOT_HOST:-/home/cirillo/Desktop/SOKE_DATA}:/workspace/SOKE_DATA
+      - ${SOKE_ARTIFACTS_ROOT_HOST:-/home/cirillo/Desktop/SOKE_ARTIFACTS}:/workspace/SOKE_ARTIFACTS
       - ${HOME}/.cache/huggingface:/workspace/.cache/huggingface
     gpus: all
     stdin_open: true

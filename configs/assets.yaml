@@ -1,8 +1,8 @@
 CONFIG_FOLDER: configs # Config files path
-FOLDER: experiments # Experiment files saving path
+FOLDER: ${oc.env:SOKE_EXP_ROOT,experiments} # Experiment files saving path
 
 TEST:
-  FOLDER: results # Testing files saving path
+  FOLDER: ${oc.env:SOKE_RESULTS_ROOT,results} # Testing files saving path
 
 DATASET:
   TASK_ROOT: deps/mGPT_instructions

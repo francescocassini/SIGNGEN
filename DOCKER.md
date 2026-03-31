@@ -57,10 +57,20 @@ docker compose --env-file .env run --rm soke train
 
 ## Notes
 - Dataset is external to code repo and mounted at `/workspace/SOKE_DATA`.
+- Artifacts are external to code repo and mounted at `/workspace/SOKE_ARTIFACTS`:
+  - training checkpoints/logs: `/workspace/SOKE_ARTIFACTS/experiments`
+  - test outputs (`.pkl`, scores): `/workspace/SOKE_ARTIFACTS/results`
+  - preview GIF: `/workspace/SOKE_ARTIFACTS/gifs`
+  - run markers (`STARTED/DONE/FAILED`): `/workspace/SOKE_ARTIFACTS/run_state`
 - If dataset files are missing and `SOKE_HF_DATASET_REPO` is set, container downloads from private HF repo.
 - If HF repo provides `How2Sign.tar.gz`, `CSL-Daily.tar.gz`, `Phoenix_2014T.tar.gz`, bootstrap auto-extracts them after download.
 - Split files are auto-repaired from `data/splits/` when missing or broken symlinks are detected.
 - Credentials are passed only via `.env` / runtime env vars (never hardcoded in git).
+- Telegram notifications are optional:
+  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+  - `SOKE_TELEGRAM_NOTIFY=1`
+  - `SOKE_TELEGRAM_HEARTBEAT_SEC=1800` (seconds, set `0` to disable heartbeat)
+- In infer/test mode, container can auto-build a GT-vs-PRED GIF and send it to Telegram.
 
 ## Publish image (for remote SSH server pull)
 Recommended: GitHub Container Registry (GHCR), private image.
