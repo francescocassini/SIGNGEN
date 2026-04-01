@@ -148,7 +148,7 @@ def parse_args(phase="train"):
     group.add_argument("--use_gpus",
                            type=str,
                            required=False,
-                           default='0',
+                           default='',
                            help="cuda environ devices")
     
     # Parse for each phase
@@ -248,7 +248,11 @@ def parse_args(phase="train"):
         cfg_exp = get_module_config(cfg_exp, cfg_assets.CONFIG_FOLDER)
     cfg = OmegaConf.merge(cfg_exp, cfg_assets)
 
-    cfg.USE_GPUS = params.use_gpus
+    if params.use_gpus and params.use_gpus.strip():
+        cfg.USE_GPUS = params.use_gpus.strip()
+    else:
+        device_ids = cfg.DEVICE if isinstance(cfg.DEVICE, (list, tuple)) else [cfg.DEVICE]
+        cfg.USE_GPUS = ",".join(str(x) for x in device_ids)
     # Update config with arguments
     if phase in ["train", "test"]:
         cfg.TRAIN.BATCH_SIZE = params.batch_size if params.batch_size else cfg.TRAIN.BATCH_SIZE

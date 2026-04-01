@@ -1,18 +1,16 @@
-NAME: SOKE # Experiment names
-ACCELERATOR: 'gpu' # Devices optioncal: “cpu”, “gpu”, “tpu”, “ipu”, “hpu”, “mps, “auto”
-NUM_NODES: 1 # Number of GPU nodes for distributed training
-DEVICE: [0] # Single-GPU default (RTX 4090)
+NAME: SOKE_AMG_PAPER_PARITY
+ACCELERATOR: 'gpu'
+NUM_NODES: 1
+DEVICE: [0,1,2,3,4,5]
 
 TRAIN:
-  #---------------------------------
-  STAGE: lm_pretrain # stage "vae" , "lm_pretrain", "lm_instruct"
-  #---------------------------------
-  NUM_WORKERS: 16 # Number of workers
-  BATCH_SIZE: 32 # Size of batches
-  END_EPOCH: 150 # End epoch
-  RESUME: '' # Resume training from this path
-  PRETRAINED: '' # Preatrained model path
-  PRETRAINED_VAE: 'deps/tokenizer_ckpt/tokenizer.ckpt' # Vae model path
+  STAGE: lm_pretrain
+  NUM_WORKERS: 16
+  BATCH_SIZE: 32
+  END_EPOCH: 150
+  RESUME: ''
+  PRETRAINED: ''
+  PRETRAINED_VAE: 'deps/tokenizer_ckpt/tokenizer.ckpt'
 
   OPTIM:
     target: AdamW
@@ -20,25 +18,26 @@ TRAIN:
       lr: 2e-4
       betas: [0.9, 0.99]
       weight_decay: 0.0
-  
+
   LR_SCHEDULER:
     target: CosineAnnealingLR
     params:
-      T_max: ${TRAIN.END_EPOCH}  #${eval:${LOGGER.VAL_EVERY_STEPS} * 100}
+      T_max: ${TRAIN.END_EPOCH}
       eta_min: 1e-6
 
-# Evaluating Configuration
 EVAL:
-  BATCH_SIZE: 8 # Evaluating Batch size
+  BATCH_SIZE: 8
   SPLIT: val
-  MAX_SAMPLES: null # Full validation set (paper-aligned); set int for quick debug only
+  MAX_SAMPLES: null
 
 TEST:
   CHECKPOINTS: null
   SPLIT: test
-  BATCH_SIZE: 8 # training Batch size
-  REPLICATION_TIMES: 1 # Number of times to replicate the test
+  BATCH_SIZE: 8
+  REPLICATION_TIMES: 1
   SAVE_PREDICTIONS: False
+  MAX_SAMPLES: null
+  SKIP_METRICS: False
 
 DATASET:
   target: mGPT.data.H2S.H2SDataModule

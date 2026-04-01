@@ -113,26 +113,26 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
                 'abbr': 'how2sign_DTW_MPJPE_PA_lhand',
                 'mode': 'min'
             },
-            # 'Metrics/how2sign_DTW_MPJPE_PA_body': {
-            #     'abbr': 'how2sign_DTW_MPJPE_PA_body',
-            #     'mode': 'min'
-            # },
+            'Metrics/how2sign_DTW_MPJPE_PA_body': {
+                'abbr': 'how2sign_DTW_MPJPE_PA_body',
+                'mode': 'min'
+            },
             'Metrics/csl_DTW_MPJPE_PA_lhand': {
                 'abbr': 'csl_DTW_MPJPE_PA_lhand',
                 'mode': 'min'
             },
-            # 'Metrics/csl_DTW_MPJPE_PA_body': {
-            #     'abbr': 'csl_DTW_MPJPE_PA_body',
-            #     'mode': 'min'
-            # }
+            'Metrics/csl_DTW_MPJPE_PA_body': {
+                'abbr': 'csl_DTW_MPJPE_PA_body',
+                'mode': 'min'
+            },
             'Metrics/phoenix_DTW_MPJPE_PA_lhand': {
                 'abbr': 'phoenix_DTW_MPJPE_PA_lhand',
                 'mode': 'min'
             },
-            # 'Metrics/phoenix_DTW_MPJPE_PA_body': {
-            #     'abbr': 'phoenix_DTW_MPJPE_PA_body',
-            #     'mode': 'min'
-            # }
+            'Metrics/phoenix_DTW_MPJPE_PA_body': {
+                'abbr': 'phoenix_DTW_MPJPE_PA_body',
+                'mode': 'min'
+            }
         },
         'M2TMetrics': {
             'Metrics/Bleu_4': {
