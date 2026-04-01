@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 CFG="configs/soke_infer_complete.yaml"
-GPU_ID="${GPU_ID:-0}"
+USE_GPUS="${SOKE_TEST_USE_GPUS:-${SOKE_USE_GPUS:-0}}"
+DEVICE_IDS="${SOKE_TEST_DEVICE_IDS:-${SOKE_DEVICE_IDS:-0}}"
 MODE="${1:-last}"
 MAX_SAMPLES="${MAX_SAMPLES:-}"
 SKIP_METRICS="${SKIP_METRICS:-0}"
@@ -55,10 +56,15 @@ run_one() {
     --cfg "$CFG"
     --task t2m
     --nodebug
-    --use_gpus "$GPU_ID"
-    --device "$GPU_ID"
+    --use_gpus "$USE_GPUS"
     --checkpoint "$ckpt"
   )
+
+  read -r -a device_arr <<<"$(echo "$DEVICE_IDS" | tr ',' ' ')"
+  if [[ "${#device_arr[@]}" -eq 0 ]]; then
+    device_arr=(0)
+  fi
+  cmd+=(--device "${device_arr[@]}")
 
   if [[ -n "$MAX_SAMPLES" ]]; then
     cmd+=(--test_max_samples "$MAX_SAMPLES")
@@ -70,7 +76,7 @@ run_one() {
   fi
 
   set +e
-  PYTHONPATH=. CUDA_VISIBLE_DEVICES="$GPU_ID" "${cmd[@]}" | tee "$log_file"
+  PYTHONPATH=. CUDA_VISIBLE_DEVICES="$USE_GPUS" "${cmd[@]}" | tee "$log_file"
   local status=$?
   set -e
 

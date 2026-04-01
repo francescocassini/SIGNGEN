@@ -103,10 +103,46 @@ touch "$RUN_STARTED_FILE"
 
 case "$MODE" in
   train)
-    CMD=(python -u -m train --cfg "${SOKE_TRAIN_CFG:-configs/soke.yaml}" --nodebug --use_gpus 0 --device 0 "$@")
+    TRAIN_USE_GPUS="${SOKE_TRAIN_USE_GPUS:-${SOKE_USE_GPUS:-0}}"
+    TRAIN_DEVICE_IDS="${SOKE_TRAIN_DEVICE_IDS:-${SOKE_DEVICE_IDS:-0}}"
+    TRAIN_NUM_NODES="${SOKE_NUM_NODES:-1}"
+    read -r -a TRAIN_DEVICE_ARR <<<"$(echo "$TRAIN_DEVICE_IDS" | tr ',' ' ')"
+    if [[ "${#TRAIN_DEVICE_ARR[@]}" -eq 0 ]]; then
+      TRAIN_DEVICE_ARR=(0)
+    fi
+    CMD=(
+      python -u -m train
+      --cfg "${SOKE_TRAIN_CFG:-configs/soke.yaml}"
+      --nodebug
+      --use_gpus "$TRAIN_USE_GPUS"
+      --device "${TRAIN_DEVICE_ARR[@]}"
+      --num_nodes "$TRAIN_NUM_NODES"
+      "$@"
+    )
+    export CUDA_VISIBLE_DEVICES="$TRAIN_USE_GPUS"
     ;;
   infer|test)
-    CMD=(python -u -m test --cfg "${SOKE_TEST_CFG:-configs/soke_infer_complete.yaml}" --task t2m --nodebug --use_gpus 0 --device 0 "$@")
+    TEST_USE_GPUS="${SOKE_TEST_USE_GPUS:-${SOKE_USE_GPUS:-0}}"
+    TEST_DEVICE_IDS="${SOKE_TEST_DEVICE_IDS:-${SOKE_DEVICE_IDS:-0}}"
+    TEST_NUM_NODES="${SOKE_NUM_NODES:-1}"
+    read -r -a TEST_DEVICE_ARR <<<"$(echo "$TEST_DEVICE_IDS" | tr ',' ' ')"
+    if [[ "${#TEST_DEVICE_ARR[@]}" -eq 0 ]]; then
+      TEST_DEVICE_ARR=(0)
+    fi
+    CMD=(
+      python -u -m test
+      --cfg "${SOKE_TEST_CFG:-configs/soke_infer_complete.yaml}"
+      --task t2m
+      --nodebug
+      --use_gpus "$TEST_USE_GPUS"
+      --device "${TEST_DEVICE_ARR[@]}"
+      --num_nodes "$TEST_NUM_NODES"
+      "$@"
+    )
+    export CUDA_VISIBLE_DEVICES="$TEST_USE_GPUS"
+    ;;
+  cycle)
+    CMD=(bash /workspace/SOKE/scripts/run_train_infer_cycles.sh "$@")
     ;;
   bash|shell)
     exec bash "$@"

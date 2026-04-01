@@ -85,6 +85,10 @@ def apply_env_overrides(cfg: OmegaConf, phase: str):
     cfg.LOGGER.VAL_EVERY_STEPS = max(1, _env_int("SOKE_VAL_EVERY_EPOCHS", cfg.LOGGER.VAL_EVERY_STEPS))
     cfg.TRAIN.BATCH_SIZE = _env_int("SOKE_TRAIN_BATCH_SIZE", cfg.TRAIN.BATCH_SIZE)
     cfg.TEST.BATCH_SIZE = _env_int("SOKE_TEST_BATCH_SIZE", cfg.TEST.BATCH_SIZE)
+    if phase == "train":
+        train_resume = os.environ.get("SOKE_TRAIN_RESUME", "").strip()
+        if train_resume:
+            cfg.TRAIN.RESUME = train_resume
 
     # Test-side controls (useful both for explicit infer runs and periodic previews).
     max_samples = os.environ.get("SOKE_TEST_MAX_SAMPLES", "").strip()

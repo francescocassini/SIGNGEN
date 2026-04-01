@@ -37,6 +37,12 @@ docker compose run --rm soke nvidia-smi
 docker compose run --rm soke train
 ```
 
+Cycle mode (recommended for long runs with periodic test/inference):
+
+```bash
+docker compose run --rm soke cycle
+```
+
 ## 4) Inference
 
 ```bash
@@ -71,6 +77,15 @@ docker compose --env-file .env run --rm soke train
   - `SOKE_TELEGRAM_NOTIFY=1`
   - `SOKE_TELEGRAM_HEARTBEAT_SEC=1800` (seconds, set `0` to disable heartbeat)
 - In infer/test mode, container can auto-build a GT-vs-PRED GIF and send it to Telegram.
+- GPU/device selection is env-driven (in `.env`):
+  - `SOKE_USE_GPUS`, `SOKE_DEVICE_IDS`
+  - `SOKE_TRAIN_USE_GPUS`, `SOKE_TRAIN_DEVICE_IDS`
+  - `SOKE_TEST_USE_GPUS`, `SOKE_TEST_DEVICE_IDS`
+  - `SOKE_NUM_NODES`
+- Cycle scheduling (in `.env`):
+  - `SOKE_TOTAL_EPOCHS`, `SOKE_CYCLE_EPOCHS`
+  - `SOKE_CYCLE_RUN_INFER`
+  - `SOKE_CYCLE_TEST_MAX_SAMPLES`, `SOKE_CYCLE_TEST_SKIP_METRICS`
 
 ## Publish image (for remote SSH server pull)
 Recommended: GitHub Container Registry (GHCR), private image.
