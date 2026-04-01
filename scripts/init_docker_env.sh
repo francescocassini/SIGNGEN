@@ -28,6 +28,7 @@ GID_VAL="$(id -g)"
 cat > "$ENV_FILE" <<EOF
 SOKE_HF_DATASET_REPO=$REPO_ID
 HF_TOKEN=hf_xxx_replace_me
+WANDB_API_KEY=wandb_xxx_replace_me
 SOKE_DATA_ROOT_HOST=$DATA_ROOT
 SOKE_ARTIFACTS_ROOT_HOST=$ARTIFACT_ROOT
 SOKE_AUTO_DOWNLOAD_DATASET=$AUTO_DL
@@ -70,7 +71,7 @@ chmod 600 "$ENV_FILE"
 echo "[OK] Wrote $ENV_FILE"
 echo "     LOCAL_UID=$UID_VAL LOCAL_GID=$GID_VAL"
 echo "Next steps:"
-echo "  1) edit HF_TOKEN in .env"
+echo "  1) edit HF_TOKEN and WANDB_API_KEY in .env"
 echo "  2) optionally set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"
 echo "  3) optionally tune SOKE_USE_GPUS/SOKE_DEVICE_IDS and cycle vars"
 echo "  4) docker compose build --no-cache soke"

@@ -5,14 +5,14 @@
 ```bash
 cd /home/cirillo/Desktop/SIGNGEN/SOKE
 scripts/init_docker_env.sh
-# then edit .env and set HF_TOKEN
+# then edit .env and set HF_TOKEN + WANDB_API_KEY
 ```
 
 Alternative manual setup is still valid:
 
 ```bash
 cp .env.example .env
-# Edit .env and set HF_TOKEN + LOCAL_UID + LOCAL_GID
+# Edit .env and set HF_TOKEN + WANDB_API_KEY + LOCAL_UID + LOCAL_GID
 ```
 
 ## 2) Build image
