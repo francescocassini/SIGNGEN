@@ -52,10 +52,19 @@ def resume_config(cfg: OmegaConf):
         if os.path.exists(resume):
             # Checkpoints
             cfg.TRAIN.PRETRAINED = pjoin(resume, "checkpoints", "last.ckpt")
-            # Wandb
-            wandb_files = os.listdir(pjoin(resume, "wandb", "latest-run"))
-            wandb_run = [item for item in wandb_files if "run-" in item][0]
-            cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-","").replace(".wandb", "")
+            # Wandb (optional). Resume must work even when wandb folder is absent.
+            try:
+                has_wandb = any(x.lower() == "wandb" for x in cfg.LOGGER.TYPE)
+            except Exception:
+                has_wandb = False
+            if has_wandb:
+                wandb_dir = pjoin(resume, "wandb", "latest-run")
+                if os.path.isdir(wandb_dir):
+                    wandb_files = os.listdir(wandb_dir)
+                    run_files = [item for item in wandb_files if "run-" in item]
+                    if run_files:
+                        wandb_run = run_files[0]
+                        cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-","").replace(".wandb", "")
         else:
             raise ValueError("Resume path is not right.")
 
