@@ -1,5 +1,6 @@
 import os
 import time
+import subprocess
 from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.callbacks import Callback, RichProgressBar, ModelCheckpoint
 
@@ -14,6 +15,9 @@ def build_callbacks(cfg, logger=None, phase='test', **kwargs):
     # Checkpoint Callback
     if phase == 'train':
         callbacks.extend(getCheckpointCallback(cfg, logger=logger, **kwargs))
+        periodic_cb = PeriodicInferenceCallback(cfg, logger=logger)
+        if periodic_cb.enabled:
+            callbacks.append(periodic_cb)
         
     return callbacks
 
@@ -340,3 +344,87 @@ class progressLogger(Callback):
             elapsed = time.time() - self._epoch_start_time
         line = f"{line}   epoch_time {elapsed:.1f}s"
         self.logger.info(line)
+
+
+class PeriodicInferenceCallback(Callback):
+    """Run inference preview every N epochs, then optionally send GIF via existing script hooks."""
+
+    def __init__(self, cfg, logger=None):
+        super().__init__()
+        self.cfg = cfg
+        self.logger = logger
+        self.project_root = os.getcwd()
+        self.every_n = self._env_int("SOKE_PERIODIC_INFER_EVERY_N_EPOCHS", 0)
+        self.max_samples = os.environ.get("SOKE_PERIODIC_INFER_MAX_SAMPLES", "").strip()
+        self.skip_metrics = self._env_bool("SOKE_PERIODIC_INFER_SKIP_METRICS", True)
+        self.keep_ckpt = self._env_bool("SOKE_PERIODIC_INFER_KEEP_CKPT", False)
+        self.enabled = self.every_n > 0
+
+        if self.enabled and self.logger is not None:
+            self.logger.info(
+                "Periodic inference enabled | every_n_epochs=%s | max_samples=%s | skip_metrics=%s | keep_ckpt=%s",
+                self.every_n,
+                self.max_samples if self.max_samples else "none",
+                self.skip_metrics,
+                self.keep_ckpt,
+            )
+
+    @staticmethod
+    def _env_int(name, default):
+        raw = os.environ.get(name, "").strip()
+        if raw == "":
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+
+    @staticmethod
+    def _env_bool(name, default):
+        raw = os.environ.get(name, "").strip().lower()
+        if raw == "":
+            return default
+        return raw in {"1", "true", "yes", "on"}
+
+    def on_train_epoch_end(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        if not self.enabled:
+            return
+        if not getattr(trainer, "is_global_zero", True):
+            return
+
+        epoch_done = int(trainer.current_epoch) + 1
+        if epoch_done <= 0 or epoch_done % self.every_n != 0:
+            return
+
+        ckpt_dir = os.path.join(self.cfg.FOLDER_EXP, "checkpoints")
+        os.makedirs(ckpt_dir, exist_ok=True)
+        ckpt_path = os.path.join(ckpt_dir, f"periodic_epoch={epoch_done}.ckpt")
+        trainer.save_checkpoint(ckpt_path)
+
+        env = os.environ.copy()
+        if self.max_samples:
+            env["MAX_SAMPLES"] = self.max_samples
+        if self.skip_metrics:
+            env["SKIP_METRICS"] = "1"
+        # Keep GIF generation and telegram notifications aligned with existing scripts.
+        env.setdefault("SOKE_PREVIEW_GIF_ON_INFER", "1")
+
+        cmd = ["bash", "scripts/run_inference_complete.sh", ckpt_path]
+        if self.logger is not None:
+            self.logger.info("Periodic inference start | epoch=%s | cmd=%s", epoch_done, " ".join(cmd))
+
+        result = subprocess.run(cmd, cwd=self.project_root, env=env, check=False)
+        if result.returncode != 0 and self.logger is not None:
+            self.logger.warning(
+                "Periodic inference failed | epoch=%s | returncode=%s",
+                epoch_done,
+                result.returncode,
+            )
+        elif self.logger is not None:
+            self.logger.info("Periodic inference done | epoch=%s", epoch_done)
+
+        if not self.keep_ckpt:
+            try:
+                os.remove(ckpt_path)
+            except OSError:
+                pass

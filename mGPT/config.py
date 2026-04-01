@@ -61,6 +61,45 @@ def resume_config(cfg: OmegaConf):
 
     return cfg
 
+
+def _env_int(name, default):
+    raw = os.environ.get(name, "").strip()
+    if raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_bool(name, default=False):
+    raw = os.environ.get(name, "").strip().lower()
+    if raw == "":
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def apply_env_overrides(cfg: OmegaConf, phase: str):
+    # Training controls for quick local/remote tests.
+    cfg.TRAIN.END_EPOCH = _env_int("SOKE_TRAIN_END_EPOCH", cfg.TRAIN.END_EPOCH)
+    cfg.LOGGER.VAL_EVERY_STEPS = max(1, _env_int("SOKE_VAL_EVERY_EPOCHS", cfg.LOGGER.VAL_EVERY_STEPS))
+    cfg.TRAIN.BATCH_SIZE = _env_int("SOKE_TRAIN_BATCH_SIZE", cfg.TRAIN.BATCH_SIZE)
+    cfg.TEST.BATCH_SIZE = _env_int("SOKE_TEST_BATCH_SIZE", cfg.TEST.BATCH_SIZE)
+
+    # Test-side controls (useful both for explicit infer runs and periodic previews).
+    max_samples = os.environ.get("SOKE_TEST_MAX_SAMPLES", "").strip()
+    if max_samples != "":
+        cfg.TEST.MAX_SAMPLES = int(max_samples)
+    if _env_bool("SOKE_TEST_SKIP_METRICS", False):
+        cfg.TEST.SKIP_METRICS = True
+
+    if phase == "test":
+        default_ckpt = os.environ.get("SOKE_DEFAULT_TEST_CKPT", "").strip()
+        if default_ckpt and not cfg.TEST.CHECKPOINTS:
+            cfg.TEST.CHECKPOINTS = default_ckpt
+
+    return cfg
+
 def parse_args(phase="train"):
     """
     Parse arguments and load config files
@@ -240,6 +279,9 @@ def parse_args(phase="train"):
         cfg.NAME = "debug--" + cfg.NAME
         cfg.LOGGER.WANDB.params.offline = True
         cfg.LOGGER.VAL_EVERY_STEPS = 1
+
+    # Optional env-driven runtime overrides (docker/.env friendly).
+    cfg = apply_env_overrides(cfg, phase)
         
     # Resume config
     cfg = resume_config(cfg)

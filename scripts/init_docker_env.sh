@@ -33,6 +33,17 @@ SOKE_ARTIFACTS_ROOT_HOST=$ARTIFACT_ROOT
 SOKE_AUTO_DOWNLOAD_DATASET=$AUTO_DL
 SOKE_TRAIN_CFG=configs/soke.yaml
 SOKE_TEST_CFG=configs/soke_infer_complete.yaml
+SOKE_TRAIN_END_EPOCH=150
+SOKE_VAL_EVERY_EPOCHS=4
+SOKE_TRAIN_BATCH_SIZE=32
+SOKE_TEST_BATCH_SIZE=8
+SOKE_TEST_MAX_SAMPLES=
+SOKE_TEST_SKIP_METRICS=0
+SOKE_DEFAULT_TEST_CKPT=/workspace/SOKE_ARTIFACTS/experiments/mgpt/SOKE/checkpoints/last.ckpt
+SOKE_PERIODIC_INFER_EVERY_N_EPOCHS=0
+SOKE_PERIODIC_INFER_MAX_SAMPLES=32
+SOKE_PERIODIC_INFER_SKIP_METRICS=1
+SOKE_PERIODIC_INFER_KEEP_CKPT=0
 SOKE_TELEGRAM_NOTIFY=1
 SOKE_TELEGRAM_HEARTBEAT_SEC=1800
 TELEGRAM_BOT_TOKEN=
@@ -48,5 +59,6 @@ echo "     LOCAL_UID=$UID_VAL LOCAL_GID=$GID_VAL"
 echo "Next steps:"
 echo "  1) edit HF_TOKEN in .env"
 echo "  2) optionally set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"
-echo "  3) docker compose build --no-cache soke"
-echo "  4) docker compose run --rm soke train"
+echo "  3) optionally tune SOKE_TRAIN_END_EPOCH and SOKE_PERIODIC_INFER_*"
+echo "  4) docker compose build --no-cache soke"
+echo "  5) docker compose run --rm soke train"
