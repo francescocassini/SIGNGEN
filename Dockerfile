@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 WORKDIR /workspace/SOKE
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     git \
     git-lfs \
     ffmpeg \

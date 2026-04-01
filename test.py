@@ -214,8 +214,40 @@ def main():
 
     # loading state dict
     if not cfg.TEST.CHECKPOINTS:
-        ckpt_folder = os.path.join(cfg.FOLDER_EXP.replace('results', 'experiments'), 'checkpoints')
-        cfg.TEST.CHECKPOINTS = os.path.join(ckpt_folder, 'last.ckpt')
+        candidates = []
+        # Primary path derived from the current test run name.
+        candidates.append(
+            os.path.join(
+                cfg.FOLDER_EXP.replace("results", "experiments"),
+                "checkpoints",
+                "last.ckpt",
+            )
+        )
+        # Common training run name used in this project.
+        candidates.append(
+            os.path.join(
+                cfg.FOLDER.replace("results", "experiments"),
+                "mgpt",
+                "SOKE",
+                "checkpoints",
+                "last.ckpt",
+            )
+        )
+        # Optional explicit default from env for production/server setups.
+        env_ckpt = os.environ.get("SOKE_DEFAULT_TEST_CKPT", "").strip()
+        if env_ckpt:
+            candidates.insert(0, env_ckpt)
+
+        chosen = next((p for p in candidates if p and os.path.isfile(p)), None)
+        if chosen is None:
+            pretty = "\n".join([f"  - {p}" for p in candidates if p])
+            raise FileNotFoundError(
+                "No inference checkpoint found. Searched:\n"
+                f"{pretty}\n"
+                "Provide one with `--checkpoint <path>` or set SOKE_DEFAULT_TEST_CKPT."
+            )
+        cfg.TEST.CHECKPOINTS = chosen
+        logger.info("Auto-selected checkpoint for inference: %s", chosen)
     load_pretrained(cfg, model, logger, phase="test")
     cfg.TIME = cfg.TEST.CHECKPOINTS.split('/')[-1]
 
