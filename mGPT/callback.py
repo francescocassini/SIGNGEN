@@ -113,6 +113,10 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
                 'abbr': 'how2sign_DTW_MPJPE_PA_lhand',
                 'mode': 'min'
             },
+            'Metrics/how2sign_DTW_MPJPE_PA_rhand': {
+                'abbr': 'how2sign_DTW_MPJPE_PA_rhand',
+                'mode': 'min'
+            },
             'Metrics/how2sign_DTW_MPJPE_PA_body': {
                 'abbr': 'how2sign_DTW_MPJPE_PA_body',
                 'mode': 'min'
@@ -121,12 +125,20 @@ def getCheckpointCallback(cfg, logger=None, **kwargs):
                 'abbr': 'csl_DTW_MPJPE_PA_lhand',
                 'mode': 'min'
             },
+            'Metrics/csl_DTW_MPJPE_PA_rhand': {
+                'abbr': 'csl_DTW_MPJPE_PA_rhand',
+                'mode': 'min'
+            },
             'Metrics/csl_DTW_MPJPE_PA_body': {
                 'abbr': 'csl_DTW_MPJPE_PA_body',
                 'mode': 'min'
             },
             'Metrics/phoenix_DTW_MPJPE_PA_lhand': {
                 'abbr': 'phoenix_DTW_MPJPE_PA_lhand',
+                'mode': 'min'
+            },
+            'Metrics/phoenix_DTW_MPJPE_PA_rhand': {
+                'abbr': 'phoenix_DTW_MPJPE_PA_rhand',
                 'mode': 'min'
             },
             'Metrics/phoenix_DTW_MPJPE_PA_body': {
@@ -244,6 +256,41 @@ class progressLogger(Callback):
         self.batch_log_every_n_steps = max(1, int(batch_log_every_n_steps))
         self._epoch_start_time = None
         self._train_start_time = None
+        self._last_batch_log_time = None
+        self._last_batch_log_step = None
+
+    @staticmethod
+    def _to_float(val, default=0.0):
+        try:
+            return float(val)
+        except Exception:
+            return default
+
+    @staticmethod
+    def _query_nvidia_smi(dev_idx: int):
+        cmd = [
+            "nvidia-smi",
+            f"--id={dev_idx}",
+            "--query-gpu=utilization.gpu,utilization.memory,temperature.gpu,power.draw,memory.used,memory.total",
+            "--format=csv,noheader,nounits",
+        ]
+        try:
+            out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True, timeout=1.0).strip()
+            if not out:
+                return None
+            parts = [p.strip() for p in out.split(",")]
+            if len(parts) < 6:
+                return None
+            return {
+                "gpu_util_percent": progressLogger._to_float(parts[0]),
+                "gpu_mem_util_percent": progressLogger._to_float(parts[1]),
+                "gpu_temp_c": progressLogger._to_float(parts[2]),
+                "gpu_power_w": progressLogger._to_float(parts[3]),
+                "gpu_mem_used_mb": progressLogger._to_float(parts[4]),
+                "gpu_mem_total_mb": progressLogger._to_float(parts[5]),
+            }
+        except Exception:
+            return None
 
     def on_train_start(self, trainer: Trainer, pl_module: LightningModule,
                        **kwargs) -> None:
@@ -283,6 +330,57 @@ class progressLogger(Callback):
         else:
             eta_str = "unknown"
 
+        now = time.time()
+        interval_speed = 0.0
+        if self._last_batch_log_time is not None and self._last_batch_log_step is not None:
+            dt = max(now - self._last_batch_log_time, 1e-6)
+            ds = max(step - self._last_batch_log_step, 1)
+            interval_speed = ds / dt
+        self._last_batch_log_time = now
+        self._last_batch_log_step = step
+
+        # Optimizer LR (step-wise)
+        try:
+            lr = float(trainer.optimizers[0].param_groups[0].get("lr", 0.0))
+            pl_module.log(
+                "optim/lr",
+                lr,
+                on_step=True,
+                on_epoch=False,
+                logger=True,
+                prog_bar=False,
+                sync_dist=False,
+                rank_zero_only=True,
+            )
+        except Exception:
+            pass
+
+        # Step throughput and ETA
+        try:
+            pl_module.log(
+                "sys/train_steps_per_sec",
+                float(interval_speed if interval_speed > 0 else speed),
+                on_step=True,
+                on_epoch=False,
+                logger=True,
+                prog_bar=False,
+                sync_dist=False,
+                rank_zero_only=True,
+            )
+            if isinstance(total_batches, int) and total_batches > 0 and speed > 0:
+                pl_module.log(
+                    "sys/train_eta_sec",
+                    float(max(total_batches - (batch_idx + 1), 0) / speed),
+                    on_step=True,
+                    on_epoch=False,
+                    logger=True,
+                    prog_bar=False,
+                    sync_dist=False,
+                    rank_zero_only=True,
+                )
+        except Exception:
+            pass
+
         gpu_msg = "cpu"
         try:
             import torch
@@ -290,7 +388,52 @@ class progressLogger(Callback):
                 dev = torch.cuda.current_device()
                 mem_alloc = torch.cuda.memory_allocated(dev) / (1024 ** 2)
                 mem_res = torch.cuda.memory_reserved(dev) / (1024 ** 2)
+                max_mem_alloc = torch.cuda.max_memory_allocated(dev) / (1024 ** 2)
                 gpu_msg = f"cuda:{dev} mem_alloc={mem_alloc:.0f}MB mem_reserved={mem_res:.0f}MB"
+                pl_module.log(
+                    "sys/gpu_mem_alloc_mb",
+                    float(mem_alloc),
+                    on_step=True,
+                    on_epoch=False,
+                    logger=True,
+                    prog_bar=False,
+                    sync_dist=False,
+                    rank_zero_only=True,
+                )
+                pl_module.log(
+                    "sys/gpu_mem_reserved_mb",
+                    float(mem_res),
+                    on_step=True,
+                    on_epoch=False,
+                    logger=True,
+                    prog_bar=False,
+                    sync_dist=False,
+                    rank_zero_only=True,
+                )
+                pl_module.log(
+                    "sys/gpu_mem_max_alloc_mb",
+                    float(max_mem_alloc),
+                    on_step=True,
+                    on_epoch=False,
+                    logger=True,
+                    prog_bar=False,
+                    sync_dist=False,
+                    rank_zero_only=True,
+                )
+
+                smi = self._query_nvidia_smi(dev)
+                if smi is not None:
+                    for k, v in smi.items():
+                        pl_module.log(
+                            f"sys/{k}",
+                            float(v),
+                            on_step=True,
+                            on_epoch=False,
+                            logger=True,
+                            prog_bar=False,
+                            sync_dist=False,
+                            rank_zero_only=True,
+                        )
         except Exception:
             pass
 

@@ -111,6 +111,7 @@ class BaseModel(LightningModule):
         dico.update(self.loss_log_dict('val'))
         # Log metrics
         dico.update(self.metrics_log_dict())
+        dico.update(self._aggregate_t2m_metrics(dico))
         # print('dico', dico)
         # Write to log only if not sanity check
         if not self.trainer.sanity_checking:
@@ -160,6 +161,8 @@ class BaseModel(LightningModule):
 
         # Log metrics
         dico = {} if skip_test_metrics else self.metrics_log_dict()
+        if dico:
+            dico.update(self._aggregate_t2m_metrics(dico))
         # Write to log only if not sanity check
         if not self.trainer.sanity_checking:
             if dico:
@@ -237,6 +240,47 @@ class BaseModel(LightningModule):
         losses = self._losses['losses_' + split]
         loss_dict = losses.compute(split)
         return loss_dict
+
+    @staticmethod
+    def _aggregate_t2m_metrics(metrics: dict):
+        def _mean(keys):
+            vals = [float(metrics[k]) for k in keys if k in metrics]
+            if not vals:
+                return None
+            return float(sum(vals) / len(vals))
+
+        lhand_keys = [
+            "Metrics/how2sign_DTW_MPJPE_PA_lhand",
+            "Metrics/csl_DTW_MPJPE_PA_lhand",
+            "Metrics/phoenix_DTW_MPJPE_PA_lhand",
+        ]
+        rhand_keys = [
+            "Metrics/how2sign_DTW_MPJPE_PA_rhand",
+            "Metrics/csl_DTW_MPJPE_PA_rhand",
+            "Metrics/phoenix_DTW_MPJPE_PA_rhand",
+        ]
+        body_keys = [
+            "Metrics/how2sign_DTW_MPJPE_PA_body",
+            "Metrics/csl_DTW_MPJPE_PA_body",
+            "Metrics/phoenix_DTW_MPJPE_PA_body",
+        ]
+        out = {}
+        avg_lhand = _mean(lhand_keys)
+        avg_rhand = _mean(rhand_keys)
+        avg_body = _mean(body_keys)
+        avg_hand = _mean(lhand_keys + rhand_keys)
+        avg_hand_body = _mean(lhand_keys + rhand_keys + body_keys)
+        if avg_lhand is not None:
+            out["Metrics/avg_DTW_MPJPE_PA_lhand"] = avg_lhand
+        if avg_rhand is not None:
+            out["Metrics/avg_DTW_MPJPE_PA_rhand"] = avg_rhand
+        if avg_body is not None:
+            out["Metrics/avg_DTW_MPJPE_PA_body"] = avg_body
+        if avg_hand is not None:
+            out["Metrics/avg_DTW_MPJPE_PA_hand"] = avg_hand
+        if avg_hand_body is not None:
+            out["Metrics/avg_DTW_MPJPE_PA_hand_body"] = avg_hand_body
+        return out
 
     def metrics_log_dict(self):
 
