@@ -403,3 +403,69 @@ watch -n 1 "nvidia-smi --query-gpu=timestamp,utilization.gpu,utilization.memory,
 1. Pipeline logging + checkpoint + notifiche attivabile da config/env senza edit manuali codice.
 2. Testata almeno una run completa con notifiche Telegram ricevute correttamente.
 3. Documentazione operativa corta (setup token/chat_id + esempi comandi + troubleshooting).
+
+## 18) Aggiornamento operativo (2026-04-01) - Pipeline locale/remote stabilizzata
+### Esito sessione
+- Flusso end-to-end validato in locale con GPU:
+  - training avviato correttamente,
+  - test/inferenza avviata correttamente,
+  - notifiche Telegram funzionanti (testo + GIF, con possibile ritardo lato rete Telegram),
+  - artefatti scritti su volume host esterno.
+
+### Modifiche tecniche integrate
+- `Dockerfile`:
+  - aggiunto `curl` (necessario per `scripts/telegram_notify.sh` nel container).
+- `test.py`:
+  - fallback robusto checkpoint in inferenza:
+    - supporto `SOKE_DEFAULT_TEST_CKPT`,
+    - fallback automatico a `.../experiments/mgpt/SOKE/checkpoints/last.ckpt`,
+    - errore esplicito se nessun checkpoint e' disponibile.
+- `mGPT/config.py`:
+  - resume robusto anche senza cartella `wandb/latest-run`,
+  - override runtime da env (es. `SOKE_TRAIN_END_EPOCH`, `SOKE_TEST_MAX_SAMPLES`, `SOKE_TEST_SKIP_METRICS`, `SOKE_TRAIN_RESUME`).
+- `docker/entrypoint.sh`:
+  - mode `cycle` aggiunto,
+  - train/test GPU selection env-driven (`SOKE_*_USE_GPUS`, `SOKE_*_DEVICE_IDS`, `SOKE_NUM_NODES`),
+  - mantenuti marker run (`STARTED/DONE/FAILED`) e manifest.
+- Nuovo orchestratore:
+  - `scripts/run_train_infer_cycles.sh` implementa ciclo sequenziale:
+    - train fino a target epoch,
+    - inferenza su checkpoint `last.ckpt`,
+    - resume training fino al prossimo target.
+- `scripts/run_inference_complete.sh`:
+  - supporto device multipli via env (`SOKE_TEST_USE_GPUS`, `SOKE_TEST_DEVICE_IDS`).
+- Setup env/documentazione:
+  - aggiornati `.env.example`, `scripts/init_docker_env.sh`, `DOCKER.md` con variabili ciclo/GPU.
+
+### Decisione architetturale
+- Disattivata come default la vecchia inferenza periodica in callback durante training sulla stessa GPU (`SOKE_PERIODIC_INFER_EVERY_N_EPOCHS=0`), per evitare OOM.
+- Adottato ciclo sequenziale train -> infer -> resume (`mode=cycle`) per separare le fasi e liberare VRAM tra un processo e l'altro.
+
+### Variabili `.env` operative (nuove/chiave)
+- Selezione GPU/nodi:
+  - `SOKE_USE_GPUS`, `SOKE_DEVICE_IDS`,
+  - `SOKE_TRAIN_USE_GPUS`, `SOKE_TRAIN_DEVICE_IDS`,
+  - `SOKE_TEST_USE_GPUS`, `SOKE_TEST_DEVICE_IDS`,
+  - `SOKE_NUM_NODES`.
+- Ciclo train/infer:
+  - `SOKE_MODE=cycle`,
+  - `SOKE_TOTAL_EPOCHS`,
+  - `SOKE_CYCLE_EPOCHS`,
+  - `SOKE_CYCLE_RUN_INFER`,
+  - `SOKE_CYCLE_TEST_MAX_SAMPLES`,
+  - `SOKE_CYCLE_TEST_SKIP_METRICS`.
+- Checkpoint default inferenza:
+  - `SOKE_DEFAULT_TEST_CKPT`.
+
+### Runbook minimo validato
+```bash
+cd /home/cirillo/Desktop/SIGNGEN/SOKE
+docker compose build --no-cache soke
+docker compose run --rm soke cycle
+```
+
+### Note operative emerse
+- Se `last.ckpt` esiste gia' e `SOKE_TOTAL_EPOCHS` non supera l'epoca gia' raggiunta, il train puo' chiudersi subito (resume a target gia' raggiunto).
+- Per test "fresh" da epoca 0:
+  - rimuovere `.../SOKE_ARTIFACTS/experiments/mgpt/SOKE` prima del run.
+- Se il dataset e' gia' presente e stabile, impostare `SOKE_AUTO_DOWNLOAD_DATASET=0` per evitare bootstrap/estrazione ad ogni avvio.

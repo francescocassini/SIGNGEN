@@ -161,3 +161,57 @@
   - `mGPT/utils/dataset_autodownload.py` ora ripara automaticamente i file split copiandoli da `data/splits/`.
   - `scripts/download_dataset_from_hf.sh` fa la stessa riparazione post download/extract.
 - `scripts/create_dataset_archives.sh` usa `tar --dereference` per evitare di archiviare symlink (solo file reali).
+
+## 2026-04-01
+### Riconnessione repo + hardening workflow
+- Repo locale ricollegata a `origin/main` (`https://github.com/francescocassini/SIGNGEN.git`) dopo incidente su `.git`.
+- Verificato che artefatti pesanti (`deps`, `experiments`, `results`, `logs`, checkpoint) non sono in tracking Git.
+- Aggiornata pipeline Docker per usare volume artefatti esterno (`SOKE_ARTIFACTS_ROOT_HOST`) in modo consistente locale/remoto.
+
+### Fix bloccanti emersi nei test reali
+- Errore Telegram `curl: command not found` nel container:
+  - fix: aggiunto `curl` nel `Dockerfile`.
+- Inferenza senza checkpoint:
+  - fix in `test.py` con fallback checkpoint + supporto `SOKE_DEFAULT_TEST_CKPT`.
+- Crash resume per assenza `wandb/latest-run`:
+  - fix in `mGPT/config.py` (`resume_config`) per rendere W&B opzionale.
+
+### Nuovo orchestratore fasi (train/validation/test sequenziali)
+- Implementato `scripts/run_train_infer_cycles.sh`:
+  - esegue train a target epoch,
+  - esegue infer/test su `last.ckpt`,
+  - riprende train dal checkpoint fino al prossimo target.
+- Aggiunto mode `cycle` in `docker/entrypoint.sh`.
+- GPU e device ora configurabili via `.env`:
+  - `SOKE_USE_GPUS`, `SOKE_DEVICE_IDS`,
+  - `SOKE_TRAIN_USE_GPUS`, `SOKE_TRAIN_DEVICE_IDS`,
+  - `SOKE_TEST_USE_GPUS`, `SOKE_TEST_DEVICE_IDS`,
+  - `SOKE_NUM_NODES`.
+- Inferenzа script aggiornato per supportare device multipli:
+  - `scripts/run_inference_complete.sh`.
+
+### Nuove variabili `.env` introdotte
+- Ciclo:
+  - `SOKE_MODE=cycle`
+  - `SOKE_TOTAL_EPOCHS`
+  - `SOKE_CYCLE_EPOCHS`
+  - `SOKE_CYCLE_RUN_INFER`
+  - `SOKE_CYCLE_TEST_MAX_SAMPLES`
+  - `SOKE_CYCLE_TEST_SKIP_METRICS`
+- Runtime:
+  - `SOKE_DEFAULT_TEST_CKPT`
+  - `SOKE_TRAIN_RESUME` (gestito da orchestratore)
+  - `SOKE_TRAIN_END_EPOCH`, `SOKE_VAL_EVERY_EPOCHS`, `SOKE_TEST_SKIP_METRICS`
+
+### Note operative confermate
+- Con `SOKE_TOTAL_EPOCHS=1` e checkpoint preesistente, il train puo' terminare subito per resume a target gia' raggiunto.
+- Per run fresh: cancellare `.../SOKE_ARTIFACTS/experiments/mgpt/SOKE`.
+- Le GIF vengono generate in `.../SOKE_ARTIFACTS/gifs` e inviate via Telegram (possibile delay di consegna).
+- Se il dataset e' gia' presente, impostare `SOKE_AUTO_DOWNLOAD_DATASET=0` per evitare bootstrap ripetuti.
+
+### Comando ufficiale fase attuale
+```bash
+cd /home/cirillo/Desktop/SIGNGEN/SOKE
+docker compose build --no-cache soke
+docker compose run --rm soke cycle
+```
