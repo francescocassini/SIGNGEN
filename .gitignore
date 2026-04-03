@@ -31,3 +31,4 @@ slurm/out/
 .env
 .env.*
 !.env.example
+TRAINING_INSTRUCTIONS.txt
