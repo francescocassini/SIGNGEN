@@ -1,6 +1,6 @@
 # HANDOFF - SOKE (Signs as Tokens)
 
-Ultimo aggiornamento: 2026-03-31 (Europe/Rome)
+Ultimo aggiornamento: 2026-04-03 (Europe/Rome)
 
 ## 1) Obiettivo del progetto
 Portare la pipeline SOKE in stato **end-to-end funzionante** (train/inferenza/valutazione/visualizzazione), con priorita' immediata su:
@@ -469,3 +469,44 @@ docker compose run --rm soke cycle
 - Per test "fresh" da epoca 0:
   - rimuovere `.../SOKE_ARTIFACTS/experiments/mgpt/SOKE` prima del run.
 - Se il dataset e' gia' presente e stabile, impostare `SOKE_AUTO_DOWNLOAD_DATASET=0` per evitare bootstrap/estrazione ad ogni avvio.
+
+## 19) Aggiornamento operativo (2026-04-03) - Stato reale raggiunto (verifica artefatti)
+### Verifica oggettiva eseguita
+- Workspace Git `SOKE` pulito (`main...origin/main`), senza modifiche locali non committate.
+- Nel repo codice locale non ci sono artefatti runtime (`logs/`, `results/`, `experiments/.../checkpoints`), perche' gli output sono su volume esterno.
+- Artefatti trovati e verificati in:
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/experiments`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/results`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/gifs`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/run_state`
+
+### Stato run confermato
+- Run `cycle` conclusa con successo:
+  - `run_state/cycle_20260401_184518/manifest.txt` riporta `status=success`,
+  - commit registrato nel manifest: `a94de18`.
+- Training su GPU realmente avviato e completato per 1 epoca:
+  - log: `/home/cirillo/Desktop/SOKE_ARTIFACTS/experiments/mgpt/SOKE/log_2026-04-01-18-45-22_train.log`,
+  - progresso fino a `step=1756/1756`, chiusura con `Training done`.
+- Checkpoint presenti su volume esterno:
+  - `last.ckpt` + `last-v1.ckpt` ... `last-v8.ckpt` in `/home/cirillo/Desktop/SOKE_ARTIFACTS/experiments/mgpt/SOKE/checkpoints/`.
+
+### Inferenza/GIF confermate
+- Inferenza completata su subset test (1 sample effettivo):
+  - output `test_scores.json` presente:
+    `/home/cirillo/Desktop/SOKE_ARTIFACTS/results/mgpt/SOKE_INFER/test_rank_0/test_scores.json`
+  - output `.pkl` presente:
+    `/home/cirillo/Desktop/SOKE_ARTIFACTS/results/mgpt/SOKE_INFER/test_rank_0/-fZc293MpJk_2-1-rgb_front.pkl`
+- GIF GT vs Pred generate:
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/gifs/last_20260401_191206/-fZc293MpJk_2-1-rgb_front_pred.gif`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/gifs/last_20260401_191206/-fZc293MpJk_2-1-rgb_front_compare_ref_pred.gif`
+
+### Lettura sintetica "dove siamo arrivati"
+- Obiettivo Docker+dataset HF: **CHIUSO (operativo)**.
+- Obiettivo run cycle train->infer->resume: **CHIUSO (almeno 1 ciclo verificato)**.
+- Obiettivo inferenza completa su test set intero multi-dataset: **NON ANCORA CHIUSO** (run verificata su subset rapido; CSL/Phoenix restano a 0 nel run osservato).
+- Obiettivo GIF periodiche ogni 50 epoche: **PARZIALE** (GIF presenti, ma periodicita' automatica multi-epoca da consolidare su run lunghi).
+
+### Prossimo step immediato consigliato
+1. Lanciare un ciclo non-preview (senza limitazione sample) per ottenere metriche finali su test set pieno.
+2. Confrontare `last.ckpt` vs almeno un `min-*.ckpt` con stessa procedura.
+3. Aggiornare tabella benchmark finale (how2sign/csl/phoenix) solo dopo run full senza skip metriche.
