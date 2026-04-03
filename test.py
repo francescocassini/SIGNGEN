@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import subprocess
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -9,8 +10,9 @@ from pathlib import Path
 from rich import get_console
 from rich.table import Table
 from omegaconf import OmegaConf
+from pytorch_lightning.loggers import CSVLogger
 from mGPT.callback import build_callbacks
-from mGPT.config import parse_args
+from mGPT.config import parse_args, instantiate_from_config
 from mGPT.data.build_data import build_data
 from mGPT.models.build_model import build_model
 from mGPT.utils.logger import create_logger
@@ -133,11 +135,121 @@ def get_metric_statistics(values, replication_times):
     return mean, conf_interval
 
 
+def _env_bool(name, default=False):
+    raw = os.environ.get(name, "").strip().lower()
+    if raw == "":
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _iter_loggers(trainer):
+    if getattr(trainer, "loggers", None):
+        return list(trainer.loggers)
+    if getattr(trainer, "logger", None) is not None:
+        return [trainer.logger]
+    return []
+
+
+def log_test_summary_to_wandb(trainer, mean_metrics, replication_times, logger):
+    if not mean_metrics:
+        return
+    payload = {
+        f"test_summary/{k}": float(v)
+        for k, v in mean_metrics.items()
+    }
+    payload["test_summary/replication_times"] = int(replication_times)
+    payload["test_summary/timestamp"] = int(time.time())
+    sent = False
+    for pl_logger in _iter_loggers(trainer):
+        name = pl_logger.__class__.__name__.lower()
+        if "wandb" not in name:
+            continue
+        try:
+            experiment = getattr(pl_logger, "experiment", None)
+            if experiment is not None:
+                experiment.log(payload)
+                sent = True
+        except Exception as e:
+            logger.warning("Unable to log test summary to W&B: %s", e)
+    if sent:
+        logger.info("Test summary metrics sent to W&B (%d items).", len(mean_metrics))
+
+
+def _build_quality_metrics_message(cfg, mean_metrics):
+    key_order = [
+        "Metrics/how2sign_DTW_MPJPE_PA_lhand/mean",
+        "Metrics/how2sign_DTW_MPJPE_PA_rhand/mean",
+        "Metrics/how2sign_DTW_MPJPE_PA_body/mean",
+        "Metrics/csl_DTW_MPJPE_PA_lhand/mean",
+        "Metrics/csl_DTW_MPJPE_PA_rhand/mean",
+        "Metrics/csl_DTW_MPJPE_PA_body/mean",
+        "Metrics/phoenix_DTW_MPJPE_PA_lhand/mean",
+        "Metrics/phoenix_DTW_MPJPE_PA_rhand/mean",
+        "Metrics/phoenix_DTW_MPJPE_PA_body/mean",
+        "Metrics/avg_DTW_MPJPE_PA_lhand/mean",
+        "Metrics/avg_DTW_MPJPE_PA_rhand/mean",
+        "Metrics/avg_DTW_MPJPE_PA_body/mean",
+        "Metrics/avg_DTW_MPJPE_PA_hand/mean",
+        "Metrics/avg_DTW_MPJPE_PA_hand_body/mean",
+    ]
+    labels = {
+        "Metrics/how2sign_DTW_MPJPE_PA_lhand/mean": "how2sign lhand",
+        "Metrics/how2sign_DTW_MPJPE_PA_rhand/mean": "how2sign rhand",
+        "Metrics/how2sign_DTW_MPJPE_PA_body/mean": "how2sign body",
+        "Metrics/csl_DTW_MPJPE_PA_lhand/mean": "csl lhand",
+        "Metrics/csl_DTW_MPJPE_PA_rhand/mean": "csl rhand",
+        "Metrics/csl_DTW_MPJPE_PA_body/mean": "csl body",
+        "Metrics/phoenix_DTW_MPJPE_PA_lhand/mean": "phoenix lhand",
+        "Metrics/phoenix_DTW_MPJPE_PA_rhand/mean": "phoenix rhand",
+        "Metrics/phoenix_DTW_MPJPE_PA_body/mean": "phoenix body",
+        "Metrics/avg_DTW_MPJPE_PA_lhand/mean": "avg lhand",
+        "Metrics/avg_DTW_MPJPE_PA_rhand/mean": "avg rhand",
+        "Metrics/avg_DTW_MPJPE_PA_body/mean": "avg body",
+        "Metrics/avg_DTW_MPJPE_PA_hand/mean": "avg hand",
+        "Metrics/avg_DTW_MPJPE_PA_hand_body/mean": "avg hand+body",
+    }
+
+    lines = [
+        f"[SOKE][test] QUALITY SUMMARY name={cfg.NAME} ckpt={Path(cfg.TEST.CHECKPOINTS).name}",
+        "DTW_MPJPE_PA metrics (hand/body):",
+    ]
+    found = 0
+    for key in key_order:
+        if key in mean_metrics:
+            lines.append(f"- {labels[key]}: {float(mean_metrics[key]):.3f}")
+            found += 1
+    if found == 0:
+        lines.append("- no quality metrics found")
+    return "\n".join(lines)
+
+
+def send_quality_metrics_telegram(cfg, mean_metrics, logger):
+    if not _env_bool("SOKE_TELEGRAM_NOTIFY", True):
+        return
+    root_dir = Path(__file__).resolve().parent
+    script = root_dir / "scripts" / "telegram_notify.sh"
+    if not script.is_file():
+        logger.warning("Telegram script not found: %s", script)
+        return
+    message = _build_quality_metrics_message(cfg, mean_metrics)
+    try:
+        subprocess.run([str(script), "text", message], check=False)
+        logger.info("Quality summary sent to Telegram.")
+    except Exception as e:
+        logger.warning("Unable to send quality summary to Telegram: %s", e)
+
+
 def main():
     # parse options
     cfg = parse_args(phase="test")  # parse config file
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.USE_GPUS
     cfg.FOLDER = cfg.TEST.FOLDER
+    if not os.environ.get("WANDB_API_KEY"):
+        cfg.LOGGER.WANDB.params.offline = True
+        os.environ["WANDB_MODE"] = "disabled"
+        cfg.LOGGER.TYPE = [x for x in cfg.LOGGER.TYPE if x.lower() != "wandb"]
+        if not cfg.LOGGER.TYPE:
+            cfg.LOGGER.TYPE = ["tensorboard"]
 
     # for data_cfg in [h2s_cfg, csl_cfg]:
         # cfg['DATASET']['H2S'] = data_cfg
@@ -160,6 +272,17 @@ def main():
 
     # Environment Variables
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+    # Metric Logger
+    pl_loggers = []
+    for loggerName in cfg.LOGGER.TYPE:
+        if loggerName.lower() in {'tensorboard', 'wandb'}:
+            pl_logger = instantiate_from_config(
+                eval(f'cfg.LOGGER.{loggerName.upper()}'))
+            pl_loggers.append(pl_logger)
+    csv_logger = CSVLogger(save_dir=cfg.FOLDER_EXP, name="csv_logs", version="")
+    pl_loggers.append(csv_logger)
+    logger.info(f"CSV metrics log: {csv_logger.log_dir}")
 
     # Callbacks
     callbacks = build_callbacks(cfg, logger=logger, phase="test")
@@ -204,7 +327,7 @@ def main():
         deterministic=False,
         detect_anomaly=False,
         enable_progress_bar=True,
-        logger=None,
+        logger=pl_loggers,
         callbacks=callbacks,
     )
 
@@ -273,13 +396,24 @@ def main():
             else:
                 all_metrics[key] += [item]
 
+    mean_metrics = {}
     all_metrics_new = {}
 
     for key, item in all_metrics.items():
         mean, conf_interval = get_metric_statistics(np.array(item),
                                                     replication_times)
-        all_metrics_new[key + "/mean"] = f"{mean:.3f}"
+        metric_key = key + "/mean"
+        mean_metrics[metric_key] = float(mean)
+        all_metrics_new[metric_key] = f"{mean:.3f}"
         # all_metrics_new[key + "/conf_interval"] = conf_interval
+
+    log_test_summary_to_wandb(
+        trainer=trainer,
+        mean_metrics=mean_metrics,
+        replication_times=replication_times,
+        logger=logger,
+    )
+    send_quality_metrics_telegram(cfg=cfg, mean_metrics=mean_metrics, logger=logger)
 
     print_table(f"Mean Metrics", all_metrics_new, logger=logger)
     all_metrics_new.update(all_metrics)

@@ -215,3 +215,27 @@ cd /home/cirillo/Desktop/SIGNGEN/SOKE
 docker compose build --no-cache soke
 docker compose run --rm soke cycle
 ```
+
+## 2026-04-03
+### Verifica stato reale ("dove siamo arrivati")
+- Verificato che il repo `SOKE` e' pulito (`main...origin/main`) e che gli artefatti runtime non sono dentro al repo.
+- Verificati artefatti su volume esterno:
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/experiments`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/results`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/gifs`
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/run_state`
+- Run `cycle_20260401_184518` confermata con `status=success` in `manifest.txt`.
+- Training GPU confermato fino a fine epoca 0 (1756 step) da log:
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/experiments/mgpt/SOKE/log_2026-04-01-18-45-22_train.log`
+- Checkpoint presenti:
+  - `last.ckpt` e `last-v1..last-v8` in `/home/cirillo/Desktop/SOKE_ARTIFACTS/experiments/mgpt/SOKE/checkpoints/`.
+- Inferenza completata su subset:
+  - `test_scores.json` + 1 file `.pkl` in `/home/cirillo/Desktop/SOKE_ARTIFACTS/results/mgpt/SOKE_INFER/test_rank_0/`.
+- GIF GT vs Pred generate:
+  - `/home/cirillo/Desktop/SOKE_ARTIFACTS/gifs/last_20260401_191206/`.
+
+### Stato obiettivi (checkpoint rapido)
+- Docker + dataset HF privata: operativo.
+- Orchestrazione `cycle` train->infer: operativa (1 run validata).
+- Inferenza full test set multi-dataset: ancora da finalizzare (nel run verificato CSL/Phoenix risultano 0).
+- Automazione periodica GIF ogni 50 epoche: parziale, da consolidare su run lunghi.
