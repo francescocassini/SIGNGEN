@@ -2,10 +2,10 @@
 .venv
 __pycache__
 *.pyc
+.cache
+.nv
 
 # Large runtime artifacts
-data
-deps
 experiments
 experiments_1
 results
@@ -16,3 +16,9 @@ slurm
 
 # Local helper files
 COMMIT_USED.txt
+
+# Secrets / local runtime config
+.env
+.env.*
+!.env.example
+!.env.runtime.example

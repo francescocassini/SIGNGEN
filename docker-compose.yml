@@ -7,7 +7,7 @@ services:
     container_name: soke
     working_dir: /workspace/SOKE
     env_file:
-      - path: .env
+      - path: .env.runtime
         required: false
     environment:
       - SOKE_DATA_ROOT=/workspace/SOKE_DATA
@@ -26,7 +26,6 @@ services:
       - HF_HOME=/workspace/.cache/huggingface
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     volumes:
-      - ./:/workspace/SOKE
       - ${SOKE_DATA_ROOT_HOST:-/home/cirillo/Desktop/SOKE_DATA}:/workspace/SOKE_DATA
       - ${SOKE_ARTIFACTS_ROOT_HOST:-/home/cirillo/Desktop/SOKE_ARTIFACTS}:/workspace/SOKE_ARTIFACTS
       - ${HOME}/.cache/huggingface:/workspace/.cache/huggingface

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-ENV_FILE="$ROOT_DIR/.env"
+ENV_FILE="${SOKE_RUNTIME_ENV_FILE:-$ROOT_DIR/.env.runtime}"
 
 REPO_ID="${1:-Francesco77/soke-private-data}"
 DATA_ROOT="${2:-/home/cirillo/Desktop/SOKE_DATA}"
@@ -71,9 +71,10 @@ chmod 600 "$ENV_FILE"
 echo "[OK] Wrote $ENV_FILE"
 echo "     LOCAL_UID=$UID_VAL LOCAL_GID=$GID_VAL"
 echo "Next steps:"
-echo "  1) edit HF_TOKEN and WANDB_API_KEY in .env"
+echo "  1) edit HF_TOKEN and WANDB_API_KEY in $ENV_FILE"
 echo "  2) optionally set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID"
 echo "  3) optionally tune SOKE_USE_GPUS/SOKE_DEVICE_IDS and cycle vars"
 echo "  4) docker compose build --no-cache soke"
 echo "  5) docker compose run --rm soke train   # single run"
 echo "     or: docker compose run --rm soke cycle # train->infer->resume"
+echo "Note: changing $ENV_FILE does not require rebuilding the image."

@@ -1,29 +1,38 @@
 # SOKE Docker Guide
 
-## 1) Prepare env file
+## 1) Runtime env file (not baked into image)
+
+Create runtime env once:
 
 ```bash
 cd /home/cirillo/Desktop/SIGNGEN/SOKE
 scripts/init_docker_env.sh
-# then edit .env and set HF_TOKEN + WANDB_API_KEY
+# writes .env.runtime
+# then edit HF_TOKEN + WANDB_API_KEY
 ```
 
-Alternative manual setup is still valid:
+Or manual setup:
 
 ```bash
-cp .env.example .env
-# Edit .env and set HF_TOKEN + WANDB_API_KEY + LOCAL_UID + LOCAL_GID
+cp .env.runtime.example .env.runtime
+# edit values
 ```
 
-## 2) Build image
+Important:
+- `.env` / `.env.*` are ignored by `.dockerignore` and are never copied into image layers.
+- Changing `.env.runtime` does not require rebuilding the image.
+
+## 2) Build full image (with deps + SMPL)
+
+This Dockerfile now includes `deps/*` inside the image (for train/infer/validation on remote).
 
 ```bash
-docker compose build
+docker compose build --no-cache soke
 ```
 
-Compatibility note:
-- image base uses `torch 2.3.1`,
-- project pins `transformers==4.41.2` to avoid runtime import breaks with newer transformers.
+Compatibility notes:
+- base image: `pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime`
+- project pin: `transformers==4.41.2`
 
 Quick GPU check:
 
@@ -31,79 +40,72 @@ Quick GPU check:
 docker compose run --rm soke nvidia-smi
 ```
 
-## 3) Train
+## 3) Run locally with compose
 
 ```bash
 docker compose run --rm soke train
-```
-
-Cycle mode (recommended for long runs with periodic test/inference):
-
-```bash
-docker compose run --rm soke cycle
-```
-
-## 4) Inference
-
-```bash
 docker compose run --rm soke infer
-```
-
-## 5) Shell inside container
-
-```bash
+docker compose run --rm soke cycle
 docker compose run --rm soke shell
 ```
 
-If you prefer explicit env file:
+Compose now uses `.env.runtime` and does not bind-mount source code into `/workspace/SOKE`.
+This ensures the embedded code + embedded `deps` from the image are used.
+
+## 4) Run directly from pulled image (recommended on remote)
+
+Helper script:
 
 ```bash
-docker compose --env-file .env run --rm soke train
+scripts/run_docker_image.sh train
+scripts/run_docker_image.sh infer
+scripts/run_docker_image.sh cycle
 ```
 
-## Notes
-- Dataset is external to code repo and mounted at `/workspace/SOKE_DATA`.
-- Artifacts are external to code repo and mounted at `/workspace/SOKE_ARTIFACTS`:
-  - training checkpoints/logs: `/workspace/SOKE_ARTIFACTS/experiments`
-  - test outputs (`.pkl`, scores): `/workspace/SOKE_ARTIFACTS/results`
-  - preview GIF: `/workspace/SOKE_ARTIFACTS/gifs`
-  - run markers (`STARTED/DONE/FAILED`): `/workspace/SOKE_ARTIFACTS/run_state`
-- If dataset files are missing and `SOKE_HF_DATASET_REPO` is set, container downloads from private HF repo.
-- If HF repo provides `How2Sign.tar.gz`, `CSL-Daily.tar.gz`, `Phoenix_2014T.tar.gz`, bootstrap auto-extracts them after download.
-- Split files are auto-repaired from `data/splits/` when missing or broken symlinks are detected.
-- Credentials are passed only via `.env` / runtime env vars (never hardcoded in git).
-- Telegram notifications are optional:
-  - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-  - `SOKE_TELEGRAM_NOTIFY=1`
-  - `SOKE_TELEGRAM_HEARTBEAT_SEC=1800` (seconds, set `0` to disable heartbeat)
-- In infer/test mode, container can auto-build a GT-vs-PRED GIF and send it to Telegram.
-- GPU/device selection is env-driven (in `.env`):
-  - `SOKE_USE_GPUS`, `SOKE_DEVICE_IDS`
-  - `SOKE_TRAIN_USE_GPUS`, `SOKE_TRAIN_DEVICE_IDS`
-  - `SOKE_TEST_USE_GPUS`, `SOKE_TEST_DEVICE_IDS`
-  - `SOKE_NUM_NODES`
-- Cycle scheduling (in `.env`):
-  - `SOKE_TOTAL_EPOCHS`, `SOKE_CYCLE_EPOCHS`
-  - `SOKE_CYCLE_RUN_INFER`
-  - `SOKE_CYCLE_TEST_MAX_SAMPLES`, `SOKE_CYCLE_TEST_SKIP_METRICS`
+Defaults used by script:
+- image: `ghcr.io/francescocassini/soke:full-deps`
+- runtime env file: `.env.runtime`
+- mounts:
+  - `${SOKE_DATA_ROOT_HOST}` -> `/workspace/SOKE_DATA`
+  - `${SOKE_ARTIFACTS_ROOT_HOST}` -> `/workspace/SOKE_ARTIFACTS`
+  - `${HOME}/.cache/huggingface` -> `/workspace/.cache/huggingface`
 
-## Publish image (for remote SSH server pull)
-Recommended: GitHub Container Registry (GHCR), private image.
+## 5) Publish full image to GHCR
 
 ```bash
-docker tag signgen/soke:local ghcr.io/francescocassini/soke:latest
+docker tag signgen/soke:local ghcr.io/francescocassini/soke:full-deps
 echo <GH_TOKEN> | docker login ghcr.io -u francescocassini --password-stdin
+docker push ghcr.io/francescocassini/soke:full-deps
+```
+
+Suggested extra tag:
+
+```bash
+docker tag ghcr.io/francescocassini/soke:full-deps ghcr.io/francescocassini/soke:latest
 docker push ghcr.io/francescocassini/soke:latest
 ```
 
-On remote server:
+## 6) Pull + run on multi-GPU machine
 
 ```bash
 echo <GH_TOKEN> | docker login ghcr.io -u francescocassini --password-stdin
-docker pull ghcr.io/francescocassini/soke:latest
-docker run --gpus all --rm -it \\
-  --env SOKE_HF_DATASET_REPO=Francesco77/soke-private-data \\
-  --env HF_TOKEN=<HF_TOKEN> \\
-  -v /path/on/server/SOKE_DATA:/workspace/SOKE_DATA \\
-  ghcr.io/francescocassini/soke:latest train
+docker pull ghcr.io/francescocassini/soke:full-deps
+
+# Option A: helper script (inside repo checkout)
+SOKE_DOCKER_IMAGE=ghcr.io/francescocassini/soke:full-deps scripts/run_docker_image.sh train
+
+# Option B: plain docker run
+docker run --gpus all --rm -it \
+  --env-file /path/to/.env.runtime \
+  -v /path/on/server/SOKE_DATA:/workspace/SOKE_DATA \
+  -v /path/on/server/SOKE_ARTIFACTS:/workspace/SOKE_ARTIFACTS \
+  -v $HOME/.cache/huggingface:/workspace/.cache/huggingface \
+  ghcr.io/francescocassini/soke:full-deps train
 ```
+
+## Notes
+- Dataset remains external (`/workspace/SOKE_DATA`) unless you choose to pre-load it in host storage.
+- If dataset files are missing and `SOKE_HF_DATASET_REPO` is set, container can auto-download from private HF repo.
+- Artifacts are external in `/workspace/SOKE_ARTIFACTS` (checkpoints/results/logs/gifs/run_state).
+- Telegram notifications are optional via runtime env vars.
+- GPU/device selection is runtime-env driven (`SOKE_*GPU*`, `SOKE_DEVICE_IDS`, `SOKE_NUM_NODES`).
