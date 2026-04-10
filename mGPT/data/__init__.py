@@ -1,5 +1,5 @@
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 
 
 class BASEDataModule(pl.LightningDataModule):
@@ -43,7 +43,6 @@ class BASEDataModule(pl.LightningDataModule):
             params = self.hparams.copy()
             params['code_path'] = None
             params['split'] = self.cfg.TEST.SPLIT
-            params['max_samples'] = getattr(self.cfg.TEST, "MAX_SAMPLES", None)
             self._test_dataset = self.DatasetEval( **params)
         return self._test_dataset
 
@@ -59,11 +58,10 @@ class BASEDataModule(pl.LightningDataModule):
         dataloader_options = self.dataloader_options.copy()
         dataloader_options["batch_size"] = self.cfg.TRAIN.BATCH_SIZE
         dataloader_options["num_workers"] = self.cfg.TRAIN.NUM_WORKERS
-        persistent = dataloader_options["num_workers"] > 0
         return DataLoader(
             self.train_dataset,
-            shuffle=True,
-            persistent_workers=persistent,
+            shuffle=False,
+            persistent_workers=True,
             **dataloader_options,
         )
 
@@ -73,10 +71,9 @@ class BASEDataModule(pl.LightningDataModule):
             "batch_size"] = 1 if self.is_mm else self.cfg.TEST.BATCH_SIZE
         dataloader_options["num_workers"] = self.cfg.TEST.NUM_WORKERS
         dataloader_options["shuffle"] = False
-        persistent = dataloader_options["num_workers"] > 0
         return DataLoader(
             self.test_dataset,
-            persistent_workers=persistent,
+            persistent_workers=True,
             **dataloader_options,
         )
 
@@ -86,16 +83,9 @@ class BASEDataModule(pl.LightningDataModule):
         dataloader_options["batch_size"] = self.cfg.EVAL.BATCH_SIZE
         dataloader_options["num_workers"] = self.cfg.EVAL.NUM_WORKERS
         dataloader_options["shuffle"] = False
-        persistent = dataloader_options["num_workers"] > 0
-        dataset = self.val_dataset
-        max_samples = getattr(self.cfg.EVAL, "MAX_SAMPLES", None)
-        if max_samples is not None:
-            max_samples = int(max_samples)
-            if max_samples > 0 and len(dataset) > max_samples:
-                dataset = Subset(dataset, list(range(max_samples)))
         return DataLoader(
-            dataset,
-            persistent_workers=persistent,
+            self.val_dataset,
+            persistent_workers=True,
             **dataloader_options,
         )
 
@@ -106,15 +96,8 @@ class BASEDataModule(pl.LightningDataModule):
             "batch_size"] = 1 if self.is_mm else self.cfg.TEST.BATCH_SIZE
         dataloader_options["num_workers"] = self.cfg.TEST.NUM_WORKERS
         dataloader_options["shuffle"] = False
-        persistent = dataloader_options["num_workers"] > 0
-        dataset = self.test_dataset
-        max_samples = getattr(self.cfg.TEST, "MAX_SAMPLES", None)
-        if max_samples is not None:
-            max_samples = int(max_samples)
-            if max_samples > 0 and len(dataset) > max_samples:
-                dataset = Subset(dataset, list(range(max_samples)))
         return DataLoader(
-            dataset,
-            persistent_workers=persistent,
+            self.test_dataset,
+            persistent_workers=True,
             **dataloader_options,
         )

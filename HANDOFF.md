@@ -510,3 +510,93 @@ docker compose run --rm soke cycle
 1. Lanciare un ciclo non-preview (senza limitazione sample) per ottenere metriche finali su test set pieno.
 2. Confrontare `last.ckpt` vs almeno un `min-*.ckpt` con stessa procedura.
 3. Aggiornare tabella benchmark finale (how2sign/csl/phoenix) solo dopo run full senza skip metriche.
+
+## 20) Aggiornamento operativo (2026-04-10) - Audit fedelta' training vs SOKE ufficiale
+### Obiettivo sessione
+- Verificare se il training AMG locale riproduce in modo identico il setup ufficiale SOKE (pesi, tokenizer, motion codes, split, preprocessing, config, retrieval, test).
+
+### Verifiche eseguite (evidenze oggettive)
+- Clonata repo ufficiale SOKE in `/tmp/SOKE_OFFICIAL` e confrontata con repo locale.
+- Commit rilevati:
+  - locale: `0841c0f5c8c3f37ca2d963823dd90d85fe095bd2`
+  - ufficiale clonato: `5cbc55d84b5a7cbf05a9cf020c468052e8d94d00`
+- Scaricati asset ufficiali (Google Drive indicato nel README) e verificati hash:
+  - mBART: hash identico al locale (`pytorch_model.bin`)
+  - tokenizer DETO: hash identico al locale (`tokenizer.ckpt`)
+- Verificati split dataset con hash: How2Sign/CSL/Phoenix identici tra repo e dataset locale (`/home/cirillo/Desktop/SOKE_DATA`).
+- Verificati mean/std:
+  - locali diversi dagli ufficiali (hash e valori tensoriali non coincidenti).
+- Verificata copertura token train:
+  - How2Sign: `30684/30965` (99.09%)
+  - CSL: `18399/18401` (99.99%)
+  - Phoenix train: `7092/7092` (100%)
+- Verificato retrieval nel ramo mbart:
+  - attivo via `name2kws_*.json` + `word2code.json` (`num_kws_per_sen=3`).
+- Verificate divergenze codice/config:
+  - `configs/soke.yaml` differente da upstream,
+  - 16 file divergenti rispetto alla repo ufficiale.
+
+### Verdetto tecnico
+- Setup locale **allineato sui componenti fondamentali** (mBART, tokenizer, split, retrieval, stage `lm_pretrain`).
+- Setup locale **non dimostrabile come identico al 100%** per:
+  - mean/std diversi dagli ufficiali,
+  - differenze config,
+  - differenze codice,
+  - motion token train non completi al 100% su tutti i dataset.
+
+### Artefatto di report creato
+- Documento completo di confronto: `TRAININg.MD`.
+
+### Prossimo step consigliato (strict reproducibility)
+1. Sostituire mean/std con versioni ufficiali.
+2. Riallineare `configs/soke.yaml` a upstream (con override minimi documentati).
+3. Rigenerare motion codes con tokenizer ufficiale e log completi.
+4. Rilanciare train+test con metriche paper e raccogliere artefatti finali (log, ckpt, test scores).
+
+## 21) Aggiornamento operativo (2026-04-10) - Ripristino strict a upstream
+### Decisione
+- Eseguito ripristino completo dei file training-critical alla versione ufficiale SOKE upstream.
+
+### Ripristino eseguito
+- File ripristinati da `/tmp/SOKE_OFFICIAL` (identici byte-per-byte):
+  - `configs/assets.yaml`, `configs/deto.yaml`, `configs/soke.yaml`
+  - `mGPT/archs/lm_multihead.py`
+  - `mGPT/callback.py`, `mGPT/config.py`
+  - `mGPT/data/H2S.py`, `mGPT/data/__init__.py`
+  - `mGPT/data/humanml/dataset_t2m.py`, `dataset_t2m_cb.py`, `dataset_t2m_token.py`
+  - `mGPT/models/base.py`, `mGPT/models/mgpt.py`
+  - `mGPT/utils/human_models.py`, `mGPT/utils/load_checkpoint.py`
+  - `scripts/get_motion_code.py`, `train.py`, `requirements.txt`
+- Verifica: `ALL_RESTORED_IDENTICAL` su confronto `cmp` con upstream.
+
+### Backup sicurezza
+- Snapshot pre-ripristino salvata in:
+  - `_backup_pre_strict_restore/20260410_074400/`
+
+### Mean/Std ufficiali
+- Sostituiti nel dataset esterno con backup dei precedenti:
+  - backup: `mean.pt.pre_strict_20260410`, `std.pt.pre_strict_20260410`
+  - attivi: `mean.pt`, `std.pt` uguali agli ufficiali per hash.
+
+### Nota GPU
+- Aggiunta nota operativa in `GUIDA_GHCR_STEP_BY_STEP.md` per lanciare 1/2/4/8 GPU via CLI senza modificare config/codice upstream.
+
+## 22) Aggiornamento operativo (2026-04-10) - Riallineamento strict completato
+### Esito
+- Riallineamento strict completato sui componenti critici del training SOKE.
+
+### Azioni chiuse
+1. Ripristino codice/config training-critical a upstream (byte-identico).
+2. Sostituzione `mean.pt/std.pt` con file ufficiali (hash match).
+3. Correzione split CSL train: rimossi 2 sample vuoti (`S003751_P0000_T00`, `S005362_P0000_T00`) con backup.
+4. Pulizia completa token dir e rigenerazione motion codes da zero (`get_motion_code` ufficiale).
+
+### Evidenze
+- Log rigenerazione: `logs/get_motion_code_strict_20260410.log`
+- Totale token `.npy`: `56175`
+- Coverage train: How2Sign `30684/30965`, CSL `18399/18399`, Phoenix `7092/7092`
+- Manifesto completo: `RIALLINEAMENTO_MANIFEST.md`
+
+### Backup/trace
+- Backup pre-restore codice: `_backup_pre_strict_restore/20260410_074400/`
+- Backup split CSL pre-drop2: `/home/cirillo/Desktop/SOKE_DATA/CSL-Daily/csl_clean.train.pre_drop2_20260410_083133`

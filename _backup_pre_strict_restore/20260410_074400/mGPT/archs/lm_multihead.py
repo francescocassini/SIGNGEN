@@ -44,7 +44,8 @@ class LMMultiHead(nn.Module):
         self.ids_remove_rhand = ids_remove_rhand
         self.eos_idx = eos_idx
 
-        self.alpha_hand = 0.4 #1/3
+        # Paper setting (SOKE ICCV 2025): lambda = 1/3 for part-wise embedding fusion.
+        self.alpha_hand = 1.0 / 3.0
         self.mask_body = torch.zeros(len_token)
         self.mask_body[ids_remove_motion] = float('-inf')
         self.mask_lhand = torch.zeros(len_token)

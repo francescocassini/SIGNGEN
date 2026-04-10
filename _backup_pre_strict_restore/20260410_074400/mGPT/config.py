@@ -52,12 +52,64 @@ def resume_config(cfg: OmegaConf):
         if os.path.exists(resume):
             # Checkpoints
             cfg.TRAIN.PRETRAINED = pjoin(resume, "checkpoints", "last.ckpt")
-            # Wandb
-            wandb_files = os.listdir(pjoin(resume, "wandb", "latest-run"))
-            wandb_run = [item for item in wandb_files if "run-" in item][0]
-            cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-","").replace(".wandb", "")
+            # Wandb (optional). Resume must work even when wandb folder is absent.
+            try:
+                has_wandb = any(x.lower() == "wandb" for x in cfg.LOGGER.TYPE)
+            except Exception:
+                has_wandb = False
+            if has_wandb:
+                wandb_dir = pjoin(resume, "wandb", "latest-run")
+                if os.path.isdir(wandb_dir):
+                    wandb_files = os.listdir(wandb_dir)
+                    run_files = [item for item in wandb_files if "run-" in item]
+                    if run_files:
+                        wandb_run = run_files[0]
+                        cfg.LOGGER.WANDB.params.id = wandb_run.replace("run-","").replace(".wandb", "")
         else:
             raise ValueError("Resume path is not right.")
+
+    return cfg
+
+
+def _env_int(name, default):
+    raw = os.environ.get(name, "").strip()
+    if raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_bool(name, default=False):
+    raw = os.environ.get(name, "").strip().lower()
+    if raw == "":
+        return default
+    return raw in {"1", "true", "yes", "on"}
+
+
+def apply_env_overrides(cfg: OmegaConf, phase: str):
+    # Training controls for quick local/remote tests.
+    cfg.TRAIN.END_EPOCH = _env_int("SOKE_TRAIN_END_EPOCH", cfg.TRAIN.END_EPOCH)
+    cfg.LOGGER.VAL_EVERY_STEPS = max(1, _env_int("SOKE_VAL_EVERY_EPOCHS", cfg.LOGGER.VAL_EVERY_STEPS))
+    cfg.TRAIN.BATCH_SIZE = _env_int("SOKE_TRAIN_BATCH_SIZE", cfg.TRAIN.BATCH_SIZE)
+    cfg.TEST.BATCH_SIZE = _env_int("SOKE_TEST_BATCH_SIZE", cfg.TEST.BATCH_SIZE)
+    if phase == "train":
+        train_resume = os.environ.get("SOKE_TRAIN_RESUME", "").strip()
+        if train_resume:
+            cfg.TRAIN.RESUME = train_resume
+
+    # Test-side controls (useful both for explicit infer runs and periodic previews).
+    max_samples = os.environ.get("SOKE_TEST_MAX_SAMPLES", "").strip()
+    if max_samples != "":
+        cfg.TEST.MAX_SAMPLES = int(max_samples)
+    if _env_bool("SOKE_TEST_SKIP_METRICS", False):
+        cfg.TEST.SKIP_METRICS = True
+
+    if phase == "test":
+        default_ckpt = os.environ.get("SOKE_DEFAULT_TEST_CKPT", "").strip()
+        if default_ckpt and not cfg.TEST.CHECKPOINTS:
+            cfg.TEST.CHECKPOINTS = default_ckpt
 
     return cfg
 
@@ -96,7 +148,7 @@ def parse_args(phase="train"):
     group.add_argument("--use_gpus",
                            type=str,
                            required=False,
-                           default='2,3,4,5,6,7',
+                           default='',
                            help="cuda environ devices")
     
     # Parse for each phase
@@ -122,6 +174,18 @@ def parse_args(phase="train"):
                            action="store_true",
                            required=False,
                            help="debug or not")
+        group.add_argument("--checkpoint",
+                           type=str,
+                           required=False,
+                           help="checkpoint path for test/inference")
+        group.add_argument("--test_max_samples",
+                           type=int,
+                           required=False,
+                           help="limit number of TEST samples (preview mode)")
+        group.add_argument("--skip_metrics",
+                           action="store_true",
+                           required=False,
+                           help="skip expensive test metrics (faster preview)")
 
 
     if phase == "demo":
@@ -184,7 +248,11 @@ def parse_args(phase="train"):
         cfg_exp = get_module_config(cfg_exp, cfg_assets.CONFIG_FOLDER)
     cfg = OmegaConf.merge(cfg_exp, cfg_assets)
 
-    cfg.USE_GPUS = params.use_gpus
+    if params.use_gpus and params.use_gpus.strip():
+        cfg.USE_GPUS = params.use_gpus.strip()
+    else:
+        device_ids = cfg.DEVICE if isinstance(cfg.DEVICE, (list, tuple)) else [cfg.DEVICE]
+        cfg.USE_GPUS = ",".join(str(x) for x in device_ids)
     # Update config with arguments
     if phase in ["train", "test"]:
         cfg.TRAIN.BATCH_SIZE = params.batch_size if params.batch_size else cfg.TRAIN.BATCH_SIZE
@@ -192,6 +260,12 @@ def parse_args(phase="train"):
         cfg.NUM_NODES = params.num_nodes if params.num_nodes else cfg.NUM_NODES
         cfg.model.params.task = params.task if params.task else cfg.model.params.task
         cfg.DEBUG = not params.nodebug if params.nodebug is not None else cfg.DEBUG
+        if phase == "test" and params.checkpoint:
+            cfg.TEST.CHECKPOINTS = params.checkpoint
+        if phase == "test" and params.test_max_samples is not None:
+            cfg.TEST.MAX_SAMPLES = int(params.test_max_samples)
+        if phase == "test" and params.skip_metrics:
+            cfg.TEST.SKIP_METRICS = True
 
         # Force no debug in test
         if phase == "test":
@@ -222,6 +296,9 @@ def parse_args(phase="train"):
         cfg.NAME = "debug--" + cfg.NAME
         cfg.LOGGER.WANDB.params.offline = True
         cfg.LOGGER.VAL_EVERY_STEPS = 1
+
+    # Optional env-driven runtime overrides (docker/.env friendly).
+    cfg = apply_env_overrides(cfg, phase)
         
     # Resume config
     cfg = resume_config(cfg)

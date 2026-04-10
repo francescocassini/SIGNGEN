@@ -239,3 +239,64 @@ docker compose run --rm soke cycle
 - Orchestrazione `cycle` train->infer: operativa (1 run validata).
 - Inferenza full test set multi-dataset: ancora da finalizzare (nel run verificato CSL/Phoenix risultano 0).
 - Automazione periodica GIF ogni 50 epoche: parziale, da consolidare su run lunghi.
+
+## 2026-04-10
+### Audit di fedelta' training locale vs SOKE ufficiale
+- Obiettivo: verificare se il training AMG locale e' una riproduzione identica dell'upstream.
+- Azioni eseguite:
+  - clonata repo ufficiale in `/tmp/SOKE_OFFICIAL`;
+  - confronto commit (`locale 0841c0f...` vs `ufficiale 5cbc55d...`);
+  - download asset ufficiali (mBART, tokenizer, mean/std) e verifica SHA256;
+  - confronto split dataset con hash su How2Sign/CSL/Phoenix;
+  - audit coverage pose e token train;
+  - verifica attivazione retrieval nel ramo mbart;
+  - diff config/codice locale vs upstream.
+
+### Esito sintetico
+- Confermato allineamento su:
+  - mBART (identico per hash),
+  - tokenizer DETO (identico per hash),
+  - split ufficiali (identici per hash),
+  - retrieval (attivo),
+  - stage `lm_pretrain`.
+- Non confermata identita' 1:1 su:
+  - `mean.pt` / `std.pt` (diversi dagli ufficiali),
+  - `configs/soke.yaml` (diff presenti),
+  - 16 file codice divergenti,
+  - coverage motion token train non piena su tutti i dataset.
+
+### Artefatto prodotto
+- Creato `TRAININg.MD` con tabella estesa di confronto e verdetto finale.
+
+### Decisione operativa
+- Stato classificato come: "riproduzione plausibile e molto vicina", ma non "identica".
+- Prossimo piano: allineamento strict (mean/std ufficiali + config upstream + rigenerazione motion codes + test metriche paper).
+
+## 2026-04-10 (ripristino strict)
+### Ripristino codice training a upstream
+- Ripristinati i file training-critical da repo ufficiale (`/tmp/SOKE_OFFICIAL`) mantenendo versioni identiche.
+- Verifica comparativa con `cmp` completata con esito `ALL_RESTORED_IDENTICAL`.
+- Backup pre-ripristino salvato in `_backup_pre_strict_restore/20260410_074400/`.
+
+### Ripristino preprocessing ufficiale
+- Aggiornati `mean.pt` e `std.pt` in `/home/cirillo/Desktop/SOKE_DATA/CSL-Daily/` con i file ufficiali.
+- Backup dei vecchi file creato (`*.pre_strict_20260410`).
+- Hash finali confermati uguali agli ufficiali.
+
+### Nota operativa GPU
+- Aggiunta nota in `GUIDA_GHCR_STEP_BY_STEP.md` con esempi CLI 1/2/4/8 GPU senza toccare il codice upstream.
+
+## 2026-04-10 (riallineamento strict - completamento)
+### Chiusura operativa
+- Ripristinati i file training-critical a versione upstream e verificata parita' byte-level.
+- Allineati `mean.pt/std.pt` ai file ufficiali (hash match).
+- Rimosse 2 entry CSL train con pose vuote (`S003751_P0000_T00`, `S005362_P0000_T00`) con backup split.
+- Eseguita rigenerazione motion codes da zero dopo clean completo della cartella token.
+
+### Output misurabili
+- Log rigenerazione: `logs/get_motion_code_strict_20260410.log`
+- Token totali generati: `56175`.
+- Coverage train: How2Sign `30684/30965`, CSL `18399/18399`, Phoenix `7092/7092`.
+
+### Documento di riferimento
+- Creato `RIALLINEAMENTO_MANIFEST.md` con commit, hash, comandi, backup e stato finale.

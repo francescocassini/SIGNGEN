@@ -218,8 +218,8 @@ smpl_x = SMPLX()
 def get_coord(root_pose, body_pose, lhand_pose, rhand_pose, jaw_pose, shape, expr, remove_lower=True):
     batch_size = root_pose.shape[0]
     zero_pose = torch.zeros((1, 3)).float().to(body_pose).repeat(batch_size, 1)  # eye poses
-
-    smplx_layer = copy.deepcopy(smpl_x.layer['neutral']).cuda()
+    device = body_pose.device
+    smplx_layer = copy.deepcopy(smpl_x.layer['neutral']).to(device)
     output = smplx_layer(betas=shape, body_pose=body_pose, global_orient=root_pose, right_hand_pose=rhand_pose,
                                 left_hand_pose=lhand_pose, jaw_pose=jaw_pose, leye_pose=zero_pose,
                                 reye_pose=zero_pose, expression=expr)

@@ -15,6 +15,7 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = cfg.USE_GPUS
     cfg.TRAIN.STAGE = "token"
     cfg.TRAIN.BATCH_SIZE = 1
+    cfg.TRAIN.NUM_WORKERS = 0
 
     # set seed
     pl.seed_everything(cfg.SEED_VALUE)
@@ -27,6 +28,14 @@ def main():
     # create dataset
     datasets = build_data(cfg, phase='token')
     print("datasets module initialized")
+    if len(datasets.train_dataset) == 0:
+        h2s_root = os.environ.get("SOKE_H2S_ROOT", "../data/How2Sign")
+        csl_root = os.environ.get("SOKE_CSL_ROOT", "../data/CSL-Daily")
+        pho_root = os.environ.get("SOKE_PHOENIX_ROOT", "../data/Phoenix_2014T")
+        raise RuntimeError(
+            "No samples available for motion tokenization. Populate pose directories under "
+            f"{h2s_root}, {csl_root}/poses, {pho_root}."
+        )
     output_dir = os.path.join(datasets.hparams.data_root, cfg.DATASET.CODE_PATH)
 
     os.makedirs(output_dir, exist_ok=True)
@@ -41,17 +50,19 @@ def main():
     assert cfg.TRAIN.PRETRAINED_VAE is not None
     load_pretrained_vae(cfg, model)
 
-    if cfg.ACCELERATOR == "gpu":
-        model = model.to('cuda')
+    use_cuda = cfg.ACCELERATOR == "gpu" and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    model = model.to(device)
 
     save_data = {}
+    skipped = 0
     for batch in tqdm(datasets.train_dataloader(),
                       desc=f'motion tokenize'):
         name = batch['text']
         
         pose = batch['motion']
         src = batch['src'][0]
-        pose = pose.cuda().float()
+        pose = pose.to(device).float()
 
         if pose.shape[1] == 0:
             continue
@@ -59,6 +70,9 @@ def main():
         output_dir = os.path.join(datasets.hparams.data_root, cfg.DATASET.CODE_PATH, src)
         target_path = os.path.join(output_dir, name[0] + '.npy')
         Path(target_path).parent.mkdir(parents=True, exist_ok=True)
+        if os.path.exists(target_path):
+            skipped += 1
+            continue
         if hasattr(model, 'hand_vae') and hasattr(model, 'rhand_vae'):
             pose_lhand = pose[..., 30:75]
             pose_rhand = pose[..., 75:120]
@@ -70,7 +84,6 @@ def main():
             # save_data[name[0]] = {'body': target_re.to('cpu').numpy()[0].tolist(), 
             #                       'lhand': target_lhand.to('cpu').numpy()[0].tolist(), 
             #                       'rhand': target_rhand.to('cpu').numpy()[0].tolist()}
-            print(target.shape)
         else:
             if hasattr(model, 'hand_vae'):
                 pose_hand = pose[..., 30:120]
@@ -78,7 +91,6 @@ def main():
                 target_hand, _ = model.hand_vae.encode(pose_hand)
                 target_re, _ = model.vae.encode(pose_re)
                 target = np.stack([target_re.to('cpu').numpy(), target_hand.to('cpu').numpy()], axis=-1)
-                print(target.shape)
             else:
                 target, _ = model.vae.encode(pose)
                 target = target.to('cpu').numpy()
@@ -91,6 +103,7 @@ def main():
     print(
         f'Motion tokenization done, the motion tokens are saved to {output_dir}'
     )
+    print(f"Existing tokens skipped: {skipped}")
 
 
 if __name__ == "__main__":
