@@ -11,6 +11,7 @@ einops
 wandb
 rich
 matplotlib
+pandas
 
 # for visualization
 smplx==0.1.28

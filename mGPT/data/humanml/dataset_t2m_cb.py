@@ -148,17 +148,48 @@ class Text2MotionDatasetCB(data.Dataset):
     def __getitem__(self, idx):
         data_idx = idx % len(self.all_data)
         task_idx = idx // len(self.all_data)
-        sample = self.all_data[data_idx]
-        src = sample['src']
-        # caption = sample['text']
-        # m_tokens = sample['code']
+        sample = None
+        caption = None
+        name = None
+        m_tokens = None
+        invalid_seen = 0
 
-        if src == 'how2sign':
-            _, caption, name, m_tokens = load_h2s_sample(sample, self.data_dir, need_pose=False, code_path=os.path.join(self.data_root, self.code_path), need_code=True)
-        elif src == 'csl':
-            _, caption, name, m_tokens = load_csl_sample(sample, self.csl_root, need_pose=False, code_path=os.path.join(self.data_root, self.code_path), need_code=True)
-        elif src == 'phoenix':
-            _, caption, name, m_tokens = load_phoenix_sample(sample, self.phoenix_root, need_pose=False, code_path=os.path.join(self.data_root, self.code_path), need_code=True)
+        # Robust fallback: some annotations point to samples without valid tokens.
+        # Try subsequent samples instead of crashing the dataloader worker.
+        for off in range(len(self.all_data)):
+            current_idx = (data_idx + off) % len(self.all_data)
+            sample = self.all_data[current_idx]
+            src = sample['src']
+
+            if src == 'how2sign':
+                _, caption, name, m_tokens = load_h2s_sample(
+                    sample, self.data_dir, need_pose=False,
+                    code_path=os.path.join(self.data_root, self.code_path), need_code=True
+                )
+            elif src == 'csl':
+                _, caption, name, m_tokens = load_csl_sample(
+                    sample, self.csl_root, need_pose=False,
+                    code_path=os.path.join(self.data_root, self.code_path), need_code=True
+                )
+            elif src == 'phoenix':
+                _, caption, name, m_tokens = load_phoenix_sample(
+                    sample, self.phoenix_root, need_pose=False,
+                    code_path=os.path.join(self.data_root, self.code_path), need_code=True
+                )
+            else:
+                m_tokens = None
+
+            valid = isinstance(m_tokens, np.ndarray) and m_tokens.ndim >= 1 and m_tokens.shape[0] > 0
+            if valid:
+                break
+            invalid_seen += 1
+            m_tokens = None
+
+        if m_tokens is None:
+            raise RuntimeError(
+                f"No valid token sample found after scanning {len(self.all_data)} items "
+                f"(starting_idx={data_idx}, invalid_seen={invalid_seen})"
+            )
 
         all_captions = [caption]
         # print(m_tokens.shape)
